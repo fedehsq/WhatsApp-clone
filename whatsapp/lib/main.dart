@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'Welcome.dart';
 import 'Home.dart';
@@ -10,8 +11,8 @@ void main() {
 const Color BACKGROUND_COLOR = const Color.fromARGB(255, 16, 29, 36);
 const Color PRIMARY_COLOR = const Color.fromARGB(255, 35, 45, 54);
 const Color TEXT_COLOR = const Color.fromARGB(255, 212, 214, 216);
-const Color SECONDARY_COLOR = const Color.fromARGB(255, 0,175,156);
-const TAB = '\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t';
+const Color SECONDARY_COLOR = const Color.fromARGB(255, 0, 175, 156);
+const Color URL_COLOR = const Color.fromARGB(255, 103, 185 , 226);
 const PRIVACY_URL = 'https://faq.whatsapp.com/general/security-and-privacy/'
     'were-updating-our-terms-and-privacy-policy?campaign_id=12619934356&extra_1'
     '=s%7Cc%7C509722853999%7Cb%7C%2Binformativa%20%2Bsulla%20%2Bprivacy%20%2'
@@ -28,23 +29,47 @@ const AGE_URL = 'https://faq.whatsapp.com/general/security-and-privacy/'
 const FB_URL = 'https://faq.whatsapp.com/general/security-and-privacy/'
     'how-we-work-with-the-facebook-companies?eea=1&lang=it';
 const MIN_WIDTH = 360;
-const PHONE_NUMBER = "phoneNumber";
+const PHONE_NUMBER = "com.example.whatsapp_clone.phoneNumber";
+const USERNAME = "com.example.whatsapp_clone.username";
+const PHOTO = "com.example.whatsapp_clone.photo";
 const FONT_SIZE = 20.0;
 var screenWidth;
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'WhatsApp',
-      theme: ThemeData(
+        title: 'WhatsApp',
+        theme: ThemeData(
           scaffoldBackgroundColor: BACKGROUND_COLOR,
           primarySwatch: Colors.teal,
           primaryColor: SECONDARY_COLOR,
           hintColor: Colors.grey,
-      ),
-      home: Welcome(),
+        ),
+        home: FutureBuilder<SharedPreferences>(
+            future: SharedPreferences.getInstance(),
+            builder: (context, AsyncSnapshot<SharedPreferences> snapshot) {
+              if (snapshot.hasData) {
+                return snapshot.data.get(USERNAME) != null ? Home() : Welcome();
+              } else {
+                return Scaffold(
+                  body: Center(
+                    child: Center(child: Image(
+                      image: AssetImage('images/white_logo.png'), width: 64,)),
+                  ),
+                  bottomNavigationBar: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Image(
+                      image: AssetImage('images/from_fb.png'), height: 35,),
+                  ),
+
+                );
+              }
+            }
+        ),
+
+
     );
   }
 }

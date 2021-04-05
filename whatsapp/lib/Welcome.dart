@@ -34,8 +34,7 @@ class Welcome extends StatelessWidget {
             ),
             Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 16.0, bottom: 8),
+                Center(
                   child: RichText(
                       text: TextSpan(
                           text: 'Leggi l\'',
@@ -45,56 +44,66 @@ class Welcome extends StatelessWidget {
                                 recognizer: TapGestureRecognizer()
                                   ..onTap = () =>
                                       Navigator.push(context,
-                                        MaterialPageRoute(builder: (context) =>
-                                            WebviewScaffold(
-                                                appBar: AppBar(
-                                                  toolbarHeight: 0,),
-                                                url: PRIVACY_URL)
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                WebviewScaffold(
+                                                    appBar: AppBar(
+                                                      toolbarHeight: 0,),
+                                                    url: PRIVACY_URL)
                                         ),
                                       ),
                                 text: 'informativa sulla privacy',
-                                style: TextStyle(color: Colors.lightBlueAccent)
+                                style: TextStyle(color: URL_COLOR)
                             ),
                             TextSpan(
-                                text: screenWidth > 360
-                                    ? '. Tocca "Accetta e continua"'
-                                    ' $TAB per accettare i '
-                                    :
-                                '. Tocca "Accetta e continua" per accettare i ',
+                                text: '. Tocca "Accetta e continua"',
                                 style: TextStyle(color: TEXT_COLOR)
                             ),
-                            TextSpan(
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () =>
-                                      Navigator.push(context,
-                                        MaterialPageRoute(builder: (context) =>
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 16.0),
-                                              child: WebviewScaffold(
-                                                  appBar: AppBar(
-                                                    toolbarHeight: 0,),
-                                                  url: TERMS_URL),
-                                            )
-                                        ),
-                                      ),
-                                text: 'termini di servizio',
-                                style: TextStyle(color: Colors.lightBlueAccent)
-                            ),
-                            TextSpan(
-                                text: '.',
-                                style: TextStyle(color: TEXT_COLOR)
-                            )
                           ]
                       )
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Center(
+                    child: RichText(
+                        text: TextSpan(
+                            text: ' per accettare i ',
+                            style: TextStyle(color: TEXT_COLOR),
+                            children: [
+                              TextSpan(
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () =>
+                                        Navigator.push(context,
+                                          MaterialPageRoute(
+                                              builder: (context) =>
+                                                  WebviewScaffold(
+                                                      appBar: AppBar(
+                                                        toolbarHeight: 0,),
+                                                      url: TERMS_URL)
+                                          ),
+                                        ),
+                                  text: 'termini di servizio',
+                                  style: TextStyle(color: URL_COLOR)
+                              ),
+                              TextSpan(
+                                  text: '.',
+                                  style: TextStyle(color: TEXT_COLOR)
+                              )
+                            ]
+                        )
+                    ),
+                  ),
+                ),
                 SizedBox(
                   width: 256,
-                  child: ElevatedButton(onPressed: () => {
-                    // launch 2nd screen
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => PhoneNumber()))
+                  child: ElevatedButton(onPressed: () =>
+                  {
+                    /// launch 2nd screen
+                    Navigator.pushAndRemoveUntil(context,
+                        MaterialPageRoute(
+                            builder: (context) => PhoneNumber()), (
+                            route) => false)
                   },
                     child: Text('ACCETTA E CONTINUA',
                       style: TextStyle(color: BACKGROUND_COLOR),

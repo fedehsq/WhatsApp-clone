@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'main.dart';
 import 'Home.dart';
@@ -30,46 +32,49 @@ class _ProfileState extends State<Profile> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.only(top: 48.0, left: 16, right: 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Text('Info profilo',
-                  style: TextStyle(color: TEXT_COLOR, fontSize: FONT_SIZE),
+      appBar: AppBar(
+        backgroundColor: BACKGROUND_COLOR,
+        elevation: 0.0,
+        centerTitle: true,
+        title: Text('Info profilo',
+          style: TextStyle(
+            color: TEXT_COLOR,),
+        ),
+      ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Text(
+                'Inserisci il tuo nome e (facoltativo) un\'immagine per il tuo',
+                style: TextStyle(color: Colors.grey,
+                    fontSize: screenWidth <= MIN_WIDTH ? 12 : 14),
+              ),
+              Center(
+                child: Text('profilo',
+                  style: TextStyle(color: Colors.grey,
+                      fontSize: screenWidth <= MIN_WIDTH ? 12 : 14),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Text(
-                    'Inserisci il tuo nome e (facoltativo) un\'immagine per il tuo',
-                    style: TextStyle(color: Colors.grey,
-                        fontSize: screenWidth <= MIN_WIDTH ? 12 : 14),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: InkWell(
+                  onTap: getImage,
+                  child: SizedBox(
+                    height: 90,
+                    width: 90,
+                    child: CircleAvatar(
+                        backgroundImage: image != null ?
+                        FileImage(image) : AssetImage(
+                            'images/account.png')),
                   ),
                 ),
-                Center(
-                  child: Text('profilo',
-                    style: TextStyle(color: Colors.grey,
-                        fontSize: screenWidth <= MIN_WIDTH ? 12 : 14),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: InkWell(
-                    onTap: getImage,
-                    child: SizedBox(
-                      height: 90,
-                      width: 90,
-                      child: CircleAvatar(
-                          backgroundImage: image != null ?
-                          FileImage(image) : AssetImage(
-                              'images/account.png')),
-                    ),
-                  ),
-                ),
-                Row(
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 24.0, right: 24),
+                child: Row(
                   children: [
                     Expanded(
                       child: TextField(
@@ -88,31 +93,42 @@ class _ProfileState extends State<Profile> {
                     Icon(Icons.emoji_emotions, color: TEXT_COLOR),
                   ],
                 ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: () =>
-                {
-                  /// Check for username
-                  if (nameController.text.isNotEmpty) {
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: () =>
+              {
+                /// Check for username
+                if (nameController.text.isNotEmpty) {
+                  /// save username and profile pic
+                  SharedPreferences.getInstance().then((value) {
+                    value.setString(USERNAME, nameController.text);
+                    value.setString(
+                        PHOTO, base64.encode(image.readAsBytesSync()));
+
                     /// Start homepage
                     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
                         builder: (BuildContext context) => Home()),
-                   (route) => false)
-                  } else {
+                            (route) => false);
+                  }),
+                } else
+                  {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Username!'))
+                        SnackBar(
+                          content: Text('Inserisci il tuo username'),
+                          duration: Duration(seconds: 1),
+                        )
                     )
                   }
-                },
-                child: Text(
-                  'AVANTI', style: TextStyle(color: BACKGROUND_COLOR),),
-              ),
-            )
-          ],
-        ),
+              },
+              child: Text(
+                'AVANTI', style: TextStyle(color: BACKGROUND_COLOR),),
+            ),
+          )
+        ],
       ),
     );
   }

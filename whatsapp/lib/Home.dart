@@ -1,10 +1,6 @@
-import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
-import 'package:image_picker/image_picker.dart';
 import 'main.dart';
 import 'ChatList.dart';
 
@@ -14,17 +10,22 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> with TickerProviderStateMixin {
+
+
+  var screenWidth;
+
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width / 4.7;
+    super.didChangeDependencies();
   }
 
   @override
   Widget build(BuildContext context) {
-    var screenWidth = MediaQuery
-        .of(context)
-        .size
-        .width / 4.7;
     return Scaffold(
       body: DefaultTabController(
         initialIndex: 1,
@@ -46,8 +47,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                     unselectedLabelColor: TEXT_COLOR,
                     labelColor: SECONDARY_COLOR,
                     tabs: <Widget>[
+                      // tricky
                       Container(
-                        color: Colors.red,
                         width: 0,
                         height: 46,
                         child: Icon(
