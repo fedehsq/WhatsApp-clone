@@ -32,42 +32,62 @@ class _ChatState extends State<Chat> {
         ],
       ),
       body:
-          StreamBuilder(
-              stream: channel.stream,
-
-              builder: (BuildContext context, snapshot) {
-                chat.add(Container(color: Colors.blueGrey,
-                  child: Text(
-                    '$snapshot.data', style: TextStyle(color: TEXT_COLOR),),));
-                return ListView.builder(
-                  itemCount: chat.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    return Align(
-                      alignment: index % 2 == 0
-                          ? Alignment.centerRight
-                          : Alignment
-                          .centerLeft, child: chat[index],);
-                  },);
-              }),
-      bottomNavigationBar: TextField(
-        onSubmitted: (message) =>
-            setState(() {
+      StreamBuilder(
+          stream: channel.stream,
+          builder: (BuildContext context, snapshot) {
+            chat.add(Container(color: Colors.blueGrey,
+              child: Text(
+                snapshot.hasData ? '${snapshot.data}' : 'start',
+                style: TextStyle(color: TEXT_COLOR),),));
+            return ListView.builder(
+              itemCount: chat.length,
+              itemBuilder: (BuildContext context, int index) {
+                return Align(
+                  alignment: index % 2 == 0
+                      ? Alignment.centerRight
+                      : Alignment
+                      .centerLeft, child: chat[index],);
+              },);
+          }),
+      bottomNavigationBar:
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            onSubmitted: (message)
+            {
               chat.add(Container(color: PRIMARY_COLOR,
-                child: Text(
-                  message, style: TextStyle(color: TEXT_COLOR),),));
-            }),
-        style: TextStyle(color: TEXT_COLOR),
-        decoration: InputDecoration(
-          hintText: 'Scrivi un messaggio',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              width: 0,
-              style: BorderStyle.none,
+                  child: Text(
+                      message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n" +
+                          message + "\n"
+
+                      , style: TextStyle(color: TEXT_COLOR)
+                  )
+              ));
+              channel.sink.add(message);
+            },
+            style: TextStyle(color: TEXT_COLOR),
+            decoration: InputDecoration(
+              hintText: 'Scrivi un messaggio',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
-      ),
     );
   }
 }
