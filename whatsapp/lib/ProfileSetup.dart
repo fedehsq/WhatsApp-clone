@@ -103,12 +103,13 @@ class _ProfileState extends State<Profile> {
               {
                 /// Check for username
                 if (nameController.text.isNotEmpty) {
-                  /// save username and profile pic
+                  /// save username and profile pic (optional)
                   SharedPreferences.getInstance().then((value) {
                     value.setString(USERNAME, nameController.text);
-                    value.setString(
-                        PHOTO, base64.encode(image.readAsBytesSync()));
-
+                    if (image != null) {
+                      value.setString(
+                          PHOTO, base64.encode(image.readAsBytesSync()));
+                    }
                     /// Start homepage
                     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
                         builder: (BuildContext context) => Home()),

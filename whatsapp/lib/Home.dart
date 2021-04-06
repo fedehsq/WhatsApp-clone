@@ -2,7 +2,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'main.dart';
-import 'ChatList.dart';
+import 'ChatTab.dart';
 
 class Home extends StatefulWidget {
   @override
