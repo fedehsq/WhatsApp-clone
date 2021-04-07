@@ -10,6 +10,7 @@ void main() {
 }
 
 const Color BACKGROUND_COLOR = const Color.fromARGB(255, 16, 29, 36);
+const Color CHAT_COLOR = const Color.fromARGB(255, 5, 71, 64);
 const Color PRIMARY_COLOR = const Color.fromARGB(255, 35, 45, 54);
 const Color TEXT_COLOR = const Color.fromARGB(255, 212, 214, 216);
 const Color SECONDARY_COLOR = const Color.fromARGB(255, 0, 175, 156);
