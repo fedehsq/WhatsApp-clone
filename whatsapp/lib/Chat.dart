@@ -15,6 +15,7 @@ class Chat extends StatefulWidget {
 
 class _ChatState extends State<Chat> {
 
+  final debugString =  "VEDIAMO DI DEBUGGARE STA CAZZO DI COSA \n";
   // aggiorno ad ogni invio/ricezione
   final chat = [];
   final channel = IOWebSocketChannel.connect('ws://echo.websocket.org');
@@ -39,55 +40,44 @@ class _ChatState extends State<Chat> {
               child: Text(
                 snapshot.hasData ? '${snapshot.data}' : 'start',
                 style: TextStyle(color: TEXT_COLOR),),));
-            return ListView.builder(
-              itemCount: chat.length,
-              itemBuilder: (BuildContext context, int index) {
-                return Align(
-                  alignment: index % 2 == 0
-                      ? Alignment.centerRight
-                      : Alignment
-                      .centerLeft, child: chat[index],);
-              },);
-          }),
-      bottomNavigationBar:
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextField(
-            onSubmitted: (message)
-            {
-              chat.add(Container(color: PRIMARY_COLOR,
-                  child: Text(
-                      message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n" +
-                          message + "\n"
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: chat.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      return Align(
+                        alignment: index % 2 == 0
+                            ? Alignment.centerRight
+                            : Alignment
+                            .centerLeft, child: chat[index],);
+                    },),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    onSubmitted: (message) {
 
-                      , style: TextStyle(color: TEXT_COLOR)
-                  )
-              ));
-              channel.sink.add(message);
-            },
-            style: TextStyle(color: TEXT_COLOR),
-            decoration: InputDecoration(
-              hintText: 'Scrivi un messaggio',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
+                      chat.add(Container(color: PRIMARY_COLOR,
+                          child: Text(
+                              debugString + debugString + debugString + debugString
+                              , style: TextStyle(color: TEXT_COLOR)
+                          )
+                      ));
+                      channel.sink.add(message);
+                    },
+                    style: TextStyle(color: TEXT_COLOR),
+                    decoration: InputDecoration(
+                      hintText: 'Scrivi un messaggio',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
     );
   }
 }

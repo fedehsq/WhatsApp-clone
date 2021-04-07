@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'Chat.dart';
+import 'DebugChat.dart';
 import 'Welcome.dart';
 import 'Home.dart';
 
@@ -52,7 +52,7 @@ class MyApp extends StatelessWidget {
             future: SharedPreferences.getInstance(),
             builder: (context, AsyncSnapshot<SharedPreferences> snapshot) {
               if (snapshot.hasData) {
-                return snapshot.data.get(USERNAME) != null ? Chat(contact: 'Echo',) : Welcome();
+                return snapshot.data.get(USERNAME) != null ? DebugChat(contact: 'Echo',) : Welcome();
               } else {
                 return Scaffold(
                   body: Center(
