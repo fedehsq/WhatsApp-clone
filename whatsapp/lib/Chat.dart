@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/InstantMessage.dart';
 import 'Contact.dart';
 import 'Message.dart';
 import 'main.dart';
 
+/// Represents the WhatsApp chat screen
 class Chat extends StatefulWidget {
   final Contact contact;
 
@@ -17,29 +20,51 @@ class Chat extends StatefulWidget {
 }
 
 class _ChatState extends State<Chat> {
-  final channel = IOWebSocketChannel.connect('ws://echo.websocket.org');
   // for user input
   final TextEditingController messageController = TextEditingController();
-  // text message
+  // connect to server when open a Chat Screen
+  final IOWebSocketChannel chatChannel = IOWebSocketChannel
+      .connect('ws://192.168.1.10:8080');
+  // text messages view
   final chatListView = [];
   // chat must scroll down at every received message
   ScrollController controller = ScrollController();
-
+  // read from user
   var input;
+  // initialize the chat
+  var first = true;
+  // Stop looping if there is also the same message on the stream
+  var lastMessage = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16.0, top: 8, bottom: 8.0),
-            child: CircleAvatar(
-              backgroundImage: widget.contact.profileImage,
-              backgroundColor: PRIMARY_COLOR,),
-          )
-          ,
           backgroundColor: PRIMARY_COLOR,
-          title: Text(widget.contact.username),
+          automaticallyImplyLeading: false,
+          titleSpacing: 0.0,
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 32,
+                  child: IconButton(
+                      icon: Icon(Icons.arrow_back),
+                      // Update in chatTab first chat
+                      onPressed: () => Navigator.pop(context, widget.contact)
+                  )
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: CircleAvatar(
+                  backgroundImage: AssetImage('images/default_profile_pic.png'), //widget.contact.profileImage,
+                  backgroundColor: PRIMARY_COLOR,),
+              ),
+              Text(widget.contact.username),
+            ],
+          ),
           actions: [
             IconButton(
                 onPressed: () => {},
@@ -51,12 +76,19 @@ class _ChatState extends State<Chat> {
           ],
         ),
         body: StreamBuilder(
-            stream: channel.stream,
+            stream: chatChannel.stream,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+              // load list for the first time
+              if (first) {
+                setup();
+              }
               // add message of other client
-              if (snapshot.hasData) {
+              if (snapshot.hasData && lastMessage != snapshot.data) {
+                lastMessage = snapshot.data;
+                var json = jsonDecode('${snapshot.data}'.split("chatWith:")[1]);
+                Message m = Message(json['message'], true);
                 chatListView.add(
-                    buildMessageLayout(Message('${snapshot.data}'), true));
+                    buildMessageLayout(m));
               }
               return Stack(
                   children: [
@@ -69,13 +101,15 @@ class _ChatState extends State<Chat> {
                     Column(
                       children: [
                         Expanded(
-
-                          /// NOTHING TO CONTROL! IF THERE IS A MESSAGE, THEN SNAPSHOT HAS DATA
                           child: ListView.builder(
                               controller: controller,
                               itemCount: chatListView.length,
                               itemBuilder: (BuildContext context, int index) {
-                                /// DEVO COSTRUIRE IL MESSAGGIO INVIATO DA ME NEL CLICK DI SOTTO
+                                // after 300 ms scroll down the list
+                                Timer(Duration(milliseconds: 300), () {
+                                  controller.jumpTo(
+                                      controller.position.maxScrollExtent);
+                                });
                                 return chatListView[index];
                               }),
                         ),
@@ -125,21 +159,28 @@ class _ChatState extends State<Chat> {
                                   IconButton(onPressed: () {
                                     // save user input
                                     input = messageController.text;
+                                    Message m = Message(input, false);
+                                    widget.contact.messages.add(m);
                                     chatListView.add(buildMessageLayout(
-                                        Message(input), false));
+                                        m));
                                     messageController.text = '';
-
-                                    // WAIT A COUPLE OF MS, OTHERWISE SERVER
-                                    // RESPOND TO FAST!
-                                    // MORE DELAY IS NECESSARY TO UPDATE LIST!
-                                    channel.sink.add(input);
+                                    // encode message as Json object
+                                    var jsonMessage = jsonEncode(InstantMessage(
+                                        widget.contact.phone, input).toJson());
+                                    String message = "sendTo: " + jsonMessage;
+                                    setState(() {
+                                      // send to server
+                                      chatChannel.sink.add(message);
+                                    });
+                                    // after 300 ms scroll down the list
                                     Timer(Duration(milliseconds: 300), () {
                                       controller.jumpTo(
                                           controller.position.maxScrollExtent);
                                     });
                                   },
                                       icon: Icon(
-                                          Icons.send, color: Colors.white))
+                                          Icons.send, color: Colors.white)
+                                  )
                                 ]
                             )
                           ],
@@ -153,10 +194,20 @@ class _ChatState extends State<Chat> {
     );
   }
 
-  // Build message view, am i the sender or not?
-  buildMessageLayout(Message message, bool fromServer) {
+  /// On opening Chat screen all messages are loaded
+  buildInitialList() {
+    for (var m in widget.contact.messages) {
+      if (m.text.isNotEmpty) {
+        chatListView.add(
+            buildMessageLayout(m));
+      }
+    }
+  }
+
+  /// Build message view, am i the sender or not?
+  buildMessageLayout(Message message) {
     return Align(
-        alignment: fromServer
+        alignment: message.fromServer
             ? Alignment.centerLeft
             : Alignment.centerRight,
         child: Padding(
@@ -165,19 +216,12 @@ class _ChatState extends State<Chat> {
               constraints: BoxConstraints(maxWidth: 350),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                color: fromServer
+                color: message.fromServer
                     ? PRIMARY_COLOR
                     : CHAT_COLOR,
               ),
               padding: EdgeInsets.all(8),
-              child: fromServer ?
-              Text(
-                  message.text,
-                  style: TextStyle(
-                      color: TEXT_COLOR,
-                      fontSize: 16)
-              ) :
-              Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible( // WHAT'S A MAGIC THIS FRAMEWORK!
@@ -197,14 +241,32 @@ class _ChatState extends State<Chat> {
                             fontSize: 10)
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6.0),
-                    child: Icon(Icons.done_all, color: Colors.blue, size: 16,),
-                  )
+                  if (!message.fromServer)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Icon(Icons.done_all, color: Colors.blue, size: 16),
+                    )
                 ],
               )
           ),
         )
     );
+  }
+
+  /// Tell to the server that I want to start a chat
+  void setup() {
+    first = !first;
+    // Read from SharedPreferences
+    SharedPreferences.getInstance().then((value) {
+      String message = 'initializeSocketChat ';
+      message += value.getString(PHONE_NUMBER) + " ";
+      message += value.getString(USERNAME) + " ";
+      //message += value.getString(PHOTO) + " ";
+      message += "photo";
+      chatChannel.sink.add(message);
+      setState(() {
+        buildInitialList();
+      });
+    });
   }
 }

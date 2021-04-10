@@ -181,6 +181,7 @@ class _PhoneNumberState extends State<PhoneNumber> {
                         {
                           /// Save phone number to sharedPreferences
                           SharedPreferences.getInstance().then((value) {
+                            value.setString(PHONE_NUMBER, phone.text);
                             /// Start next route
                             Navigator.pushAndRemoveUntil(context,
                                 MaterialPageRoute(
