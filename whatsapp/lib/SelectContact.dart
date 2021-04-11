@@ -1,12 +1,8 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:web_socket_channel/io.dart';
 import 'Chat.dart';
 import 'Contact.dart';
-import 'Message.dart';
 import 'main.dart';
 
 class SelectContact extends StatefulWidget {
@@ -19,7 +15,8 @@ class SelectContact extends StatefulWidget {
 }
 
 class _SelectContactState extends State<SelectContact> {
-  var contactListView;
+  final contactListView = [];
+  var lastContactChat;
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +29,17 @@ class _SelectContactState extends State<SelectContact> {
           IconButton(icon: Icon(Icons.search), onPressed: () => {}),
         ],
       ),
-      body: ListView.builder(itemBuilder: (BuildContext context, int index) {
-
+      body: ListView.builder(
+        itemCount: widget.online.length,
+        itemBuilder: (BuildContext context, int index) {
+            buildContactList();
+            return contactListView[index];
       },),
     );
   }
 
-  /// On opening Chat screen all messages are loaded
-  buildInitialList() {
+  /// On opening this screen all online contacts are loaded
+  buildContactList() {
     for (var c in widget.online) {
         contactListView.add(
             buildListTile(c));
@@ -48,27 +48,28 @@ class _SelectContactState extends State<SelectContact> {
 
   /// Build the Widget representing a contact with his info
   buildListTile(Contact contact) {
-    return ListTile(
-      onTap: () async {
-        // ----- Even if i wait, the build method is called -----
-        // FLUTTER IS MAGIC!
-        // Start Chat screen
-        final lastContactChat = await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => Chat(contact: contact)),
-        );
-      },
-
-      leading: CircleAvatar(
-        radius: 25,
-        backgroundImage: AssetImage('images/default_profile_pic.png'),),
-      title:
-      Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 4.0),
-        child: Text(contact.username, style: TextStyle(color: TEXT_COLOR),),
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: ListTile(
+        onTap: () async {
+          // ----- Even if i wait, the build method is called -----
+          // FLUTTER IS MAGIC!
+          // Start Chat screen
+          lastContactChat = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Chat(contact: contact)),
+          );
+          Navigator.pop(context, lastContactChat);
+        },
+        leading: CircleAvatar(
+          radius: 25,
+          backgroundImage: contact.profileImage.image,),
+        title:
+        Text(contact.username, style: TextStyle(color: TEXT_COLOR),),
       ),
     );
   }
-
-
 }
+
+
+/// QUANDO LA INVIO AL SERVER LA FOTO L APASSO COME STRINGA, APPENA ARRIVA LA CONVERTO IN FOTO VERA E PROPRIA E D ORA IN POI USERò LA FOTO!

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,16 +62,16 @@ class _ProfileState extends State<Profile> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(top: 16.0),
                 child: InkWell(
                   onTap: getImage,
                   child: SizedBox(
-                    height: 90,
-                    width: 90,
+                    height: 70,
+                    width: 70,
                     child: CircleAvatar(
                         backgroundImage: image != null ?
                         FileImage(image) : AssetImage(
-                            'images/account.png')),
+                            'images/default_profile_pic.png')),
                   ),
                 ),
               ),
@@ -97,23 +100,34 @@ class _ProfileState extends State<Profile> {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.only(bottom: 8.0),
             child: ElevatedButton(
               onPressed: () =>
               {
-                /// Check for username
+                // Check for username
                 if (nameController.text.isNotEmpty) {
-                  /// save username and profile pic (optional)
+                  // save username and profile pic (optional)
                   SharedPreferences.getInstance().then((value) {
                     value.setString(USERNAME, nameController.text);
                     if (image != null) {
                       value.setString(
                           PHOTO, base64.encode(image.readAsBytesSync()));
+                      // Load default pic
+                    } else {
+                      rootBundle.load('images/default_profile_pic.png').then((
+                          bytes) {
+                        value.setString(
+                            PHOTO, base64.encode(Uint8List.view(bytes.buffer)));
+                      });
+                      print("foto loaded");
                     }
-                    /// Start homepage
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
-                        builder: (BuildContext context) => Home()),
-                            (route) => false);
+                    print("andato");
+                    // Wait for loading photo and Start homepage
+                    Timer(Duration(milliseconds: 500),() =>
+                        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
+                            builder: (BuildContext context) => Home()),
+                                (route) => false)
+                    );
                   }),
                 } else
                   {

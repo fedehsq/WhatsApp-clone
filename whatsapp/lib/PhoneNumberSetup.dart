@@ -28,7 +28,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
           centerTitle: true,
           title: Text('Inserisci il tuo numero di telefono:',
             style: TextStyle(
-              color: TEXT_COLOR,),
+                color: TEXT_COLOR,
+                fontSize: screenWidth <= MIN_WIDTH ? 16 : FONT_SIZE),
           ),
           actions: [
             Padding(
@@ -52,7 +53,7 @@ class _PhoneNumberState extends State<PhoneNumber> {
                   Center(
                     child: RichText(
                         text: TextSpan(
-                            text: 'telefono ',
+                            text: 'telefono. ',
                             style: TextStyle(color: TEXT_COLOR),
                             children: [
                               TextSpan(
@@ -182,6 +183,7 @@ class _PhoneNumberState extends State<PhoneNumber> {
                           /// Save phone number to sharedPreferences
                           SharedPreferences.getInstance().then((value) {
                             value.setString(PHONE_NUMBER, phone.text);
+
                             /// Start next route
                             Navigator.pushAndRemoveUntil(context,
                                 MaterialPageRoute(
@@ -201,7 +203,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
                       text: TextSpan(
                         text: 'Devi avere ',
                         style: TextStyle(
-                            color: Colors.grey, fontSize: 12),
+                            color: Colors.grey,
+                            fontSize: screenWidth <= MIN_WIDTH ? 11 : 12),
                         children: [
                           TextSpan(
                               recognizer: TapGestureRecognizer()
@@ -217,12 +220,14 @@ class _PhoneNumberState extends State<PhoneNumber> {
                                     ),
                               text: 'almeno 16 anni ',
                               style: TextStyle(
-                                  color: URL_COLOR, fontSize: 12)
+                                  color: URL_COLOR,
+                                  fontSize: screenWidth <= MIN_WIDTH ? 11 : 12)
                           ),
                           TextSpan(
                             text: 'per registrarti. Scopri come WhatsApp lavora ',
                             style: TextStyle(
-                                color: Colors.grey, fontSize: 12),
+                                color: Colors.grey,
+                                fontSize: screenWidth <= MIN_WIDTH ? 11 : 12),
                           ),
                         ],
                       ),
@@ -233,7 +238,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
                     child: Center(
                       child: RichText(text: TextSpan(text: 'con le ',
                           style: TextStyle(
-                              color: Colors.grey, fontSize: 12),
+                              color: Colors.grey,
+                              fontSize: screenWidth <= MIN_WIDTH ? 11 : 12),
                           children: [
                             TextSpan(
                                 recognizer: TapGestureRecognizer()
@@ -249,7 +255,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
                                       ),
                                 text: 'aziende di Facebook',
                                 style: TextStyle(
-                                    color: URL_COLOR, fontSize: 12)
+                                    color: URL_COLOR, fontSize: screenWidth <=
+                                    MIN_WIDTH ? 11 : 12)
                             )
                           ]
                       )),

@@ -49,17 +49,18 @@ class _ChatState extends State<Chat> {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 32,
+                  width: 32,
                   child: IconButton(
                       icon: Icon(Icons.arrow_back),
                       // Update in chatTab first chat
-                      onPressed: () => Navigator.pop(context, widget.contact)
+                      onPressed: () => Navigator.pop(context)
                   )
               ),
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: CircleAvatar(
-                  backgroundImage: AssetImage('images/default_profile_pic.png'), //widget.contact.profileImage,
+                  backgroundImage: widget.contact.profileImage.image,
+                  //widget.contact.profileImage,
                   backgroundColor: PRIMARY_COLOR,),
               ),
               Text(widget.contact.username),
@@ -82,13 +83,17 @@ class _ChatState extends State<Chat> {
               if (first) {
                 setup();
               }
-              // add message of other client
+              // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
                 var json = jsonDecode('${snapshot.data}'.split("chatWith:")[1]);
-                Message m = Message(json['message'], true);
-                chatListView.add(
-                    buildMessageLayout(m));
+                // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
+                // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
+                if (widget.contact.phone == json['phone']) {
+                  Message m = Message(json['message'], true);
+                  chatListView.add(
+                      buildMessageLayout(m));
+                }
               }
               return Stack(
                   children: [
@@ -107,8 +112,10 @@ class _ChatState extends State<Chat> {
                               itemBuilder: (BuildContext context, int index) {
                                 // after 300 ms scroll down the list
                                 Timer(Duration(milliseconds: 300), () {
-                                  controller.jumpTo(
-                                      controller.position.maxScrollExtent);
+                                  try {
+                                    controller.jumpTo(
+                                        controller.position.maxScrollExtent);
+                                  } catch (e) {}
                                 });
                                 return chatListView[index];
                               }),
@@ -119,6 +126,12 @@ class _ChatState extends State<Chat> {
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 8.0),
                                 child: TextField(
+                                  onChanged: (String value) {
+                                    // Set photo icon if text is empty
+                                    setState(() {});
+                                  },
+                                  maxLines: null,
+                                  // go down when reached tot char
                                   controller: messageController,
                                   style: TextStyle(color: TEXT_COLOR),
                                   decoration: InputDecoration(
@@ -136,10 +149,12 @@ class _ChatState extends State<Chat> {
                                         IconButton(
                                           icon: Icon(Icons.attachment),
                                           color: TEXT_COLOR, onPressed: () {},),
-                                        IconButton(
-                                          icon: Icon(
-                                              Icons.photo_camera_rounded),
-                                          color: TEXT_COLOR, onPressed: () {},),
+                                        if (messageController.text.isEmpty)
+                                          IconButton(
+                                            icon: Icon(
+                                                Icons.photo_camera_rounded),
+                                            color: TEXT_COLOR,
+                                            onPressed: () {},),
                                       ],
                                     ),
                                     border: OutlineInputBorder(
@@ -174,8 +189,11 @@ class _ChatState extends State<Chat> {
                                     });
                                     // after 300 ms scroll down the list
                                     Timer(Duration(milliseconds: 300), () {
-                                      controller.jumpTo(
-                                          controller.position.maxScrollExtent);
+                                      try {
+                                        controller.jumpTo(
+                                            controller.position
+                                                .maxScrollExtent);
+                                      } catch (e) {}
                                     });
                                   },
                                       icon: Icon(
@@ -221,36 +239,60 @@ class _ChatState extends State<Chat> {
                     : CHAT_COLOR,
               ),
               padding: EdgeInsets.all(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible( // WHAT'S A MAGIC THIS FRAMEWORK!
-                    child: Text(
-                        message.text,
-                        style: TextStyle(
-                            color: TEXT_COLOR,
-                            fontSize: 16)
+              child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible( // WHAT'S A MAGIC THIS FRAMEWORK!
+                          child: Text(
+                              message.text,
+                              style: TextStyle(
+                                  color: TEXT_COLOR,
+                                  fontSize: 16)
+                          ),
+                        ),
+                        // Very tricky
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, right: 2),
+                          child: Text(message.timestamp,
+                              style: TextStyle(
+                                  color: Colors.transparent,
+                                  fontSize: 10)
+                          ),
+                        ),
+                        if (!message.fromServer)
+                          Icon(Icons.done_all, color: Colors.transparent,
+                              size: 16)
+                      ],
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 8.0, right: 4),
-                    child: Text(message.timestamp,
-                        style: TextStyle(
-                            height: 2,
-                            color: Colors.grey,
-                            fontSize: 10)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, right: 2),
+                          child: Text(message.timestamp,
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 10)
+                          ),
+                        ),
+                        if (!message.fromServer)
+                          Icon(Icons.done_all, color: Colors.blue, size: 16)
+                      ],
                     ),
-                  ),
-                  if (!message.fromServer)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6.0),
-                      child: Icon(Icons.done_all, color: Colors.blue, size: 16),
-                    )
-                ],
-              )
+                  ])
           ),
         )
     );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   /// Tell to the server that I want to start a chat

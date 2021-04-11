@@ -1,5 +1,7 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
+
+
+
+import 'package:flutter/cupertino.dart';
 
 import 'Message.dart';
 
@@ -7,15 +9,10 @@ import 'Message.dart';
 class Contact {
   final String phone;
   final String username;
-
-  // todo: CHANGE WHEN IMPLEMENT DB
-  final AssetImage profileImage;
+  final Image profileImage;
 
   // ha associaTO UNa lista di messaggi che sarà a sua volta una classe, che contiene il timestamp
   final List<Message> messages;
-
-  // needed to update main view in ChatList => MA CHE CAZZO FACCIO! HO LA LITA DEI MESSAGGI!
-  //Message lastMessage = Message('', false);
 
   Contact(this.phone, this.username, this.profileImage, this.messages);
 

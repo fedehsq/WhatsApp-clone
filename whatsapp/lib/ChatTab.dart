@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/SelectContact.dart';
 import 'Chat.dart';
 import 'Contact.dart';
 import 'Message.dart';
@@ -21,16 +22,16 @@ class ChatList extends StatefulWidget {
 /// FLUTTER BUILDS THE CHAT LIST WITH THESE ITEMS
 /// --------------------------------------------------------
 
+/// POSSO USARE SOLO CHAT CONTACTS, E MOSTRARLI QUA SSE LA LISTA MESSAGE NON è VUOTA
+
 class _ChatListState extends State<ChatList> {
 
   // Connect to server
   final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.10:8080');
 
-  // Chat list
-  final List<Contact> chatContacts = [];
+  // Contacts show in UI if there is at least one message (Chat list)
+  final List<Contact> contacts = [];
 
-  // Online contacts showing when tap to chat button
-  final List<Contact> onlineContacts = [];
 
   // Last contact with whom i've chatted, thanks to this variable,
   // when i receive a message, the sender is put as head in the chat list
@@ -47,11 +48,11 @@ class _ChatListState extends State<ChatList> {
   /// Build the Widget representing a contact with his info
   buildListTile(Contact contact) {
     return ListTile(
-      onTap: () async {
+      onTap: ()  {
         // ----- Even if i wait, the build method is called -----
         // FLUTTER IS MAGIC!
         // Start Chat screen
-        lastContactChat = await Navigator.push(
+         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => Chat(contact: contact)),
         );
@@ -59,7 +60,7 @@ class _ChatListState extends State<ChatList> {
 
       leading: CircleAvatar(
         radius: 25,
-        backgroundImage: AssetImage('images/default_profile_pic.png'),),
+        backgroundImage: contact.profileImage.image),
       title:
       Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
@@ -72,7 +73,8 @@ class _ChatListState extends State<ChatList> {
               Text(
                   // Timestamp of last message of the chat between us
                   contact.messages[contact.messages.length - 1].timestamp,
-                  style: TextStyle(color: Colors.grey, fontSize: 10)
+                  style: TextStyle(color: Colors.grey, fontSize: 10),
+                overflow: TextOverflow.ellipsis,
               )
           ],
         ),
@@ -88,10 +90,13 @@ class _ChatListState extends State<ChatList> {
                   Icon(Icons.done_all,
                       color: Colors.blue, size: 16
                   ),
-                Text(
-                  // Last message of the chat between us
-                  contact.messages[contact.messages.length - 1].text,
-                  style: TextStyle(color: Colors.grey),
+                Flexible(
+                  child: Text(
+                    // Last message of the chat between us
+                    contact.messages[contact.messages.length - 1].text,
+                    style: TextStyle(color: Colors.grey),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -105,15 +110,18 @@ class _ChatListState extends State<ChatList> {
 
   /// At every received message, add last message in the preview and put
   /// sender as head item, the last items don't change
-  List<ListTile> buildChatList(String sender) {
+  List<ListTile> buildSortedChatList(String sender) {
     List<ListTile> l = [];
-    for (int i = 0; i < chatContacts.length; i++) {
-      if (chatContacts[i].phone == sender) {
-        // Put him in head
-        l.insert(0, buildListTile(chatContacts[i]));
-      } else {
-        // rebuilt previous item in the same way (pass last chat message!)
-        l.add(buildListTile(chatContacts[i]));
+    for (int i = 0; i < contacts.length; i++) {
+      // Check if chat is empty, in this case, not show!
+      if (contacts[i].messages.length > 1) {
+        if (contacts[i].phone == sender) {
+          // Put him in head
+          l.insert(0, buildListTile(contacts[i]));
+        } else {
+          // Rebuilt previous item in the same way (pass last chat message!)
+          l.add(buildListTile(contacts[i]));
+        }
       }
     }
     return l;
@@ -128,7 +136,7 @@ class _ChatListState extends State<ChatList> {
               // Connection just done, client authentication
               if (firstClientMessage) {
                 logIn();
-                // Shows a blank page while waiting for first server answer
+                // Shows a blank page while waiting for first server response
                 return Text('');
               }
               // Check if server sends me something, ignoring the same data
@@ -143,13 +151,13 @@ class _ChatListState extends State<ChatList> {
                 // In this case, update chat list with new online users
                 // newUser: [{"phone":"3347552773","username":"fede","photo":"photo"}]
                   case "newUser":
-
-                  /// MODIFY => NOT SHOW HERE BUT WHEN TAP CHAT BUTTON
-                    return updateListWithContact(json);
+                  // Add the new user without shows him because there aren't messages
+                    return updateChatContacts(json);
 
                 // In this case, an user send me a message, so update chat list
                 // chatWith: {phone: "zzz", message"xxxx"}
                   case "chatWith":
+                    print("chat with");
                     return updateListViewWithMessage(json);
                 // impossible case
                   default:
@@ -158,26 +166,42 @@ class _ChatListState extends State<ChatList> {
                 // idle, nothing happens
               } else {
                 // Simply build list view if there is some some chat
-                if (chatContacts.isNotEmpty) {
-                  List l = buildChatList(lastContactChat == null
-                      ? chatContacts[0].phone
-                      : lastContactChat.phone);
-                  return ListView.builder(
-                      padding: EdgeInsets.only(top: 8),
-                      itemCount: l.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        return l[index];
-                      });
-                } else {
-                  return Text('');
-                }
+                print("nothing received");
+                return buildChatList();
               }
             }),
-        floatingActionButton: FloatingActionButton(onPressed: () {
-          mainChannel.sink.add("list");
-        }
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (BuildContext context) =>
+                    SelectContact(online: contacts)
+                )
+            );
+            // Check if i have to change list order
+            lastContactChat = result?? lastContactChat;
+          },
+          child: Icon(Icons.chat),
         )
     );
+  }
+
+  /// Build the chat list view
+  buildChatList() {
+    print("build chat list " + lastContactChat.toString());
+    if (contacts.isNotEmpty) {
+      List l = buildSortedChatList(lastContactChat == null
+          ? contacts[0].phone
+          : lastContactChat.phone);
+      return ListView.builder(
+          padding: EdgeInsets.only(top: 8),
+          itemCount: l.length,
+          itemBuilder: (BuildContext context, int index) {
+            return l[index];
+          });
+    } else {
+      return Text('');
+    }
   }
 
   /// Authentication with server, I send my credentials
@@ -188,31 +212,34 @@ class _ChatListState extends State<ChatList> {
       String message = 'login ';
       message += value.getString(PHONE_NUMBER) + " ";
       message += value.getString(USERNAME) + " ";
-      //message += value.getString(PHOTO) + " ";
-      message += "photo";
+      message += value.getString(PHOTO) + " ";
+      /// message += "photo";
       mainChannel.sink.add(message);
     });
   }
 
-  /// When a new user comes online, update list view
-  updateListWithContact(String json) {
+  /// When a new user comes online, add him to contacts list but not show in UI
+  updateChatContacts(String json) {
     var contactList = [];
     var jsonUsersArray = jsonDecode(json);
     for (var jsonUser in jsonUsersArray) {
       Contact contact = Contact(
           jsonUser['phone'],
           jsonUser['username'],
-          null, // photo
+          Image.memory(base64Decode(jsonUser['photo'])), /// photo --------------------------------------------
           [Message('', true)] // message list
       );
       // add to contacts only new contacts!
-      if (!chatContacts.contains(contact)) {
-        chatContacts.add(contact);
+      if (!contacts.contains(contact)) {
+        contacts.add(contact);
       }
     }
     // build list view
-    for (var contact in chatContacts) {
-      contactList.add(buildListTile(contact));
+    for (var contact in contacts) {
+      // Shows in the UI only if chat isn't empty!
+      if (contact.messages.length > 1) {
+        contactList.add(buildListTile(contact));
+      }
     }
     return ListView.builder(
         padding: EdgeInsets.only(top: 8),
@@ -220,23 +247,7 @@ class _ChatListState extends State<ChatList> {
         itemBuilder: (BuildContext context, int index) {
           return contactList[index];
         });
-  }
 
-  /// When a new user comes online, update proper list
-  updateOnlineContact(String json) {
-    var jsonUsersArray = jsonDecode(json);
-    for (var jsonUser in jsonUsersArray) {
-      Contact contact = Contact(
-          jsonUser['phone'],
-          jsonUser['username'],
-          null, // photo
-          [Message('', true)] // message list
-      );
-      // add to contacts only new contacts!
-      if (!onlineContacts.contains(contact)) {
-        onlineContacts.add(contact);
-      }
-    }
   }
 
   /// Another client sends me a message, update list view pushing him as head
@@ -248,11 +259,12 @@ class _ChatListState extends State<ChatList> {
     print(decode);
     var phone = decode['phone'];
     var message = decode['message'];
-    for (var contact in chatContacts) {
+    for (var contact in contacts) {
       if (contact.phone == phone) {
+        lastContactChat = contact;
         contact.messages.add(Message(message, true));
         // put his message as head of chat list
-        List l = buildChatList(contact.phone);
+        List l = buildSortedChatList(contact.phone);
         return ListView.builder(
             padding: EdgeInsets.only(top: 8),
             itemCount: l.length,
