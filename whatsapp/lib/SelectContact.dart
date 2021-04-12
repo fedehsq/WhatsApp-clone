@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'Chat.dart';
@@ -63,13 +62,10 @@ class _SelectContactState extends State<SelectContact> {
         },
         leading: CircleAvatar(
           radius: 25,
-          backgroundImage: contact.profileImage.image,),
+          backgroundImage: contact.profileImage.image),
         title:
         Text(contact.username, style: TextStyle(color: TEXT_COLOR),),
       ),
     );
   }
 }
-
-
-/// QUANDO LA INVIO AL SERVER LA FOTO L APASSO COME STRINGA, APPENA ARRIVA LA CONVERTO IN FOTO VERA E PROPRIA E D ORA IN POI USERò LA FOTO!

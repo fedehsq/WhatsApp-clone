@@ -22,8 +22,6 @@ class ChatList extends StatefulWidget {
 /// FLUTTER BUILDS THE CHAT LIST WITH THESE ITEMS
 /// --------------------------------------------------------
 
-/// POSSO USARE SOLO CHAT CONTACTS, E MOSTRARLI QUA SSE LA LISTA MESSAGE NON è VUOTA
-
 class _ChatListState extends State<ChatList> {
 
   // Connect to server
@@ -32,50 +30,58 @@ class _ChatListState extends State<ChatList> {
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
 
-
   // Last contact with whom i've chatted, thanks to this variable,
   // when i receive a message, the sender is put as head in the chat list
   var lastContactChat;
 
   // At the first access i send to the server my credentials: phone, username, photo
   var firstClientMessage = true;
-  // Server sends to me online contacts
-  ///var firstServerMessage = true;
 
   // Stop looping if there is also the same message on the stream
   var lastMessage = '';
 
+  // POSSO CONTROLLARE SE MOSTRARE A NOTIFICA CON UN BOOLEAN CHE CAMBIA DA 0 A 1 OGNI VOLTA CHE TAPPO
+  // OGNI VOLTA CHE RICEVO UN MESSAGGIO DAL CLIENT IL BOOLEANO TORNA A 1...
+  // FORSE HO BISOGNO QUINDI DI AGGIUNGERE UN CAMPO A MESSAGE O CONTACT CHE MI INDICIA SE L'ULTIMO MESSAGGIO è LETTO
+
+  // LO METTO AL CONTATTO COSI NEL LISTILE QUA SOTTO HO IL BOLLEANO PER OGNI CONTATTO
+
   /// Build the Widget representing a contact with his info
   buildListTile(Contact contact) {
     return ListTile(
-      onTap: ()  {
-        // ----- Even if i wait, the build method is called -----
-        // FLUTTER IS MAGIC!
+      onTap: () {
+        // Remove notify icon
+        contact.toRead = false;
         // Start Chat screen
-         Navigator.push(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => Chat(contact: contact)),
         );
       },
 
       leading: CircleAvatar(
-        radius: 25,
-        backgroundImage: contact.profileImage.image),
+          radius: 25,
+          backgroundImage: contact.profileImage.image),
       title:
       Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(contact.username, style: TextStyle(color: TEXT_COLOR),),
-            // show hour only there is a message
-            if (contact.messages[contact.messages.length - 1].text.isNotEmpty)
-              Text(
+            Text(contact.username, style: TextStyle(color: TEXT_COLOR, fontWeight: FontWeight.bold),),
+
+            /// show hour only there is a message
+            /// if (contact.messages[contact.messages.length - 1].text.isNotEmpty)
+            Column(
+              children: [
+                Text(
                   // Timestamp of last message of the chat between us
                   contact.messages[contact.messages.length - 1].timestamp,
-                  style: TextStyle(color: Colors.grey, fontSize: 10),
-                overflow: TextOverflow.ellipsis,
-              )
+                  style: TextStyle(color: contact.toRead ? SECONDARY_COLOR : Colors.grey, fontSize: 10),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            )
           ],
         ),
       ),
@@ -84,22 +90,33 @@ class _ChatListState extends State<ChatList> {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              children: [
-                if (!contact.messages[contact.messages.length - 1].fromServer)
-                  Icon(Icons.done_all,
-                      color: Colors.blue, size: 16
-                  ),
-                Flexible(
-                  child: Text(
-                    // Last message of the chat between us
-                    contact.messages[contact.messages.length - 1].text,
-                    style: TextStyle(color: Colors.grey),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            child: Stack(
+                alignment: Alignment.centerRight,
+                children:
+                [Row(
+                  children: [
+                    if (!contact.messages[contact.messages.length - 1]
+                        .fromServer)
+                      Icon(Icons.done_all,
+                          color: Colors.blue, size: 16
+                      ),
+                    Flexible(
+                      child: Text(
+                        // Last message of the chat between us
+                        contact.messages[contact.messages.length - 1].text,
+                        style: TextStyle(color: Colors.grey),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+                  // Show notification of there is a message to read
+                  if (contact.toRead)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4.0),
+                      child: Icon(Icons.circle, color: SECONDARY_COLOR, size: 18),
+                    )
+                ]),
           ),
           Divider(color: Colors.grey, thickness: 0.1,)
         ],
@@ -226,8 +243,9 @@ class _ChatListState extends State<ChatList> {
       Contact contact = Contact(
           jsonUser['phone'],
           jsonUser['username'],
-          Image.memory(base64Decode(jsonUser['photo'])), /// photo --------------------------------------------
-          [Message('', true)] // message list
+          Image.memory(base64Decode(jsonUser['photo'])),
+          [Message('', true)], // message list
+          false // No message to read when user comes online
       );
       // add to contacts only new contacts!
       if (!contacts.contains(contact)) {
@@ -262,6 +280,8 @@ class _ChatListState extends State<ChatList> {
     for (var contact in contacts) {
       if (contact.phone == phone) {
         lastContactChat = contact;
+        // New message to read! ()
+        contact.toRead = true;
         contact.messages.add(Message(message, true));
         // put his message as head of chat list
         List l = buildSortedChatList(contact.phone);

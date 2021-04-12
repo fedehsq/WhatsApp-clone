@@ -39,6 +39,7 @@ class _ChatState extends State<Chat> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color.fromARGB(255, 8, 24, 33),
         appBar: AppBar(
           backgroundColor: PRIMARY_COLOR,
           automaticallyImplyLeading: false,
@@ -52,8 +53,11 @@ class _ChatState extends State<Chat> {
                   width: 32,
                   child: IconButton(
                       icon: Icon(Icons.arrow_back),
-                      // Update in chatTab first chat
-                      onPressed: () => Navigator.pop(context)
+                      // Remove the flag of notification from this chat
+                      onPressed: () {
+                        widget.contact.toRead = false;
+                        Navigator.pop(context);
+                      }
                   )
               ),
               Padding(
