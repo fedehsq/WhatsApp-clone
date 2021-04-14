@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/InstantMessage.dart';
@@ -10,11 +11,12 @@ import 'Contact.dart';
 import 'Message.dart';
 import 'main.dart';
 
+/// QUANDO TORNO INDIETRO CONTROLLO SE L'ORA LA QUALE SONO USCITO è > DELLA LAST CONTACT, SE è COSì, SWAPPO!
+
 /// Represents the WhatsApp chat screen
 class Chat extends StatefulWidget {
   final Contact contact;
-
-  const Chat({Key key, this.contact}) : super(key: key);
+  Chat({Key key, this.contact}) : super(key: key);
   @override
   _ChatState createState() => _ChatState();
 }
@@ -24,7 +26,7 @@ class _ChatState extends State<Chat> {
   final TextEditingController messageController = TextEditingController();
   // connect to server when open a Chat Screen
   final IOWebSocketChannel chatChannel = IOWebSocketChannel
-      .connect('ws://192.168.1.10:8080');
+      .connect('ws://192.168.1.12:8080');
   // text messages view
   final chatListView = [];
   // chat must scroll down at every received message
@@ -56,7 +58,7 @@ class _ChatState extends State<Chat> {
                       // Remove the flag of notification from this chat
                       onPressed: () {
                         widget.contact.toRead = false;
-                        Navigator.pop(context);
+                        Navigator.pop(context, widget.contact);
                       }
                   )
               ),
@@ -90,7 +92,7 @@ class _ChatState extends State<Chat> {
               // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
-                var json = jsonDecode('${snapshot.data}'.split("chatWith:")[1]);
+                var json = jsonDecode('${snapshot.data}'.split("MESSAGE_FROM: ")[1]);
                 // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
                 // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
                 if (widget.contact.phone == json['phone']) {
@@ -186,7 +188,7 @@ class _ChatState extends State<Chat> {
                                     // encode message as Json object
                                     var jsonMessage = jsonEncode(InstantMessage(
                                         widget.contact.phone, input).toJson());
-                                    String message = "sendTo: " + jsonMessage;
+                                    String message = "SEND_TO: " + jsonMessage;
                                     setState(() {
                                       // send to server
                                       chatChannel.sink.add(message);
@@ -260,7 +262,7 @@ class _ChatState extends State<Chat> {
                         // Very tricky
                         Padding(
                           padding: const EdgeInsets.only(left: 8.0, right: 2),
-                          child: Text(message.timestamp,
+                          child: Text(DateFormat('HH:mm').format(widget.contact.messages[widget.contact.messages.length - 1].timestamp),
                               style: TextStyle(
                                   color: Colors.transparent,
                                   fontSize: 10)
@@ -277,7 +279,7 @@ class _ChatState extends State<Chat> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(left: 8.0, right: 2),
-                          child: Text(message.timestamp,
+                          child: Text(DateFormat('HH:mm').format(widget.contact.messages[widget.contact.messages.length - 1].timestamp),
                               style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 10)
@@ -293,6 +295,7 @@ class _ChatState extends State<Chat> {
     );
   }
 
+
   @override
   void dispose() {
     controller.dispose();
@@ -304,12 +307,8 @@ class _ChatState extends State<Chat> {
     first = !first;
     // Read from SharedPreferences
     SharedPreferences.getInstance().then((value) {
-      String message = 'initializeSocketChat ';
-      message += value.getString(PHONE_NUMBER) + " ";
-      message += value.getString(USERNAME) + " ";
-      //message += value.getString(PHOTO) + " ";
-      message += "photo";
-      chatChannel.sink.add(message);
+      var json = {'phone': value.getString(PHONE_NUMBER)};
+      chatChannel.sink.add('OPEN_CHAT_SOCKET: ' + jsonEncode(json));
       setState(() {
         buildInitialList();
       });

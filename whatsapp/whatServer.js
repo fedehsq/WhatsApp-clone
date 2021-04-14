@@ -4,106 +4,111 @@ const port = 8080;
 const webServerSocket = new WebSocket.Server({ port: port });
 console.log(`[WebSocket] Starting WebSocket server on localhost:${port}`);
 
- // to manage various states of the server
-
-// CLIENT REGISTRATION: USERNAME, PHOTO AS STRING, PHONENUMBER, LIST MESSAGE ==>>> POTREI ADDIRITTURA NON USARE DB NELL'APP! 
-// => NO, LIST MESSAGE PER OGNI CLIENT PESANTE
-// (BASTA CHE SALVO NELLE SHARED PREFERENCES IL PHONENUMBER! E LO PASSO AL SERVER OGNI VOLTA CHE MI CONNETTO, COSI LUIU ASSOCIA 
-// LA SOCKET AL MIO PHONENUMBER, USERNAME, ECC)
-
-// NO CHAT NEL FILE JSON DI REG => quando nell'app mi registro all'avvio!
+// Represents the user "online" in the services (if i create add socket and create toJson with only the 3 params i can remove SocketUser)
 class User {
-  constructor(phone, username, photo) {
+  constructor(phone, username, photo, mainSocket, chatSocket) {
     this.phone = phone;
     this.username = username;
     this.photo = photo;
+    this.mainSocket = mainSocket;
+    this.chatSocket = chatSocket;
   }
+
+  // To send over socket
+  toJson() {
+    return '{"phone":' + '"'+ this.phone + '", "username":' + '"'+ this.username + '", "photo":' + '"'+ this.photo + '"}';
+  }
+
+  static staticToJson(user) {
+    return '{"phone":' + '"'+ user.phone + '", "username":' + '"'+ user.username + '", "photo":' + '"'+ user.photo + '"}';
+
+  }
+
 }
 
-class SocketUser extends User {
-  constructor(user, socket) {
-    super(user);
-    this.socket = socket
-  }
-}
-
-// class message => user and sender!
+// Sender phone number, text message, timestamp.
+// The destination is not needed here
 class Message {
   constructor(phone, message, timestamp) {
     this.phone = phone;
     this.message = message;
+    // Timestamp needed to avoid duplicate same message in the client
     this.timestamp = timestamp;
   }
 }
 
 // IL PRIMO MESSAGGIO CHE MI SARà INVIATO è IL PHONE SEL CLIENT, COSì CREO LA COPPIA 
 // CLIENT SOCKET
-var mainUsers = [];
-var chatUsers = [];
-var mainSocketUsers = [];
-var chatSocketUsers = [];
+var users = [];
 
-// on client connection // 
-// -----------------  VIENE CREATO UN THREAD PER OGNI CONNECTION! ---------------
-// ----------------- OGNI CLIENT HA DUE CONNESSIONI, NELLA CHAT TAB E NELLA CHAT!------
-// ---------------- PROVO A INSTAURARE DUE CONNECTION NELLA TAB E PASSARLA DILLA
+// -----------------  JS è single thread ---------------
+// It doesn't create another thread, but different stacks, it simulates multithread 
+//=> i.e the var chatUser is different for every connectiom
+
+// Every client has 2 connection with this server,
+// one stable and the other one is opened when client opens a chat 
 webServerSocket.on("connection", (socket) => {
   console.log("connected");  
-  // user in session
-  var connectedUser;
-  // when socket send a message to the server
+  // User in session, this var is useful when I connect with 2nd connection 
+  var chatUser;
+  // Client send a message to the server
   socket.on("message", (message) => {
-    // LOGIN / REGISTER 'PHONE' 'USERNAME' 'PHOTO'
-    if (message.startsWith("login")) {
-      credentials = message.split(" ");
-      var user = new User(credentials[1], credentials[2], credentials[3]);
-      connectedUser = user;
-      var socketUser = new SocketUser(user, socket);
-      // check that he is not yet registered / logged
-      //if !mainUsers.includes 
-      mainUsers.push(user);      
-      mainSocketUsers.push(socketUser);      
-      // send to ALL client ALL mainUsers
-      mainSocketUsers.forEach((client) => { 
-        client.socket.send("newUser: " + JSON.stringify(mainUsers));
+    // "LOGIN:{"phone":"3347552773","username":"fede","photo":"encoded64photo"}"
+    if (message.startsWith("LOGIN")) {
+      console.log("LOGIN");
+      var json = JSON.parse(message.split("LOGIN: ")[1]);
+      // Last field is the other socket of a client, the chat socket, when he comes online, it is null
+      var user = new User(json['phone'], json['username'], json['photo'], socket, null);
+      users.push(user);      
+      // Send to all OTHER clients the new connected users
+      users.forEach((client) => {
+        if (client.phone != user.phone)
+        client.mainSocket.send("NEW_USER: " + user.toJson());
       });
-      console.log("broadcast send");
+      // Send to new client all users!
+      user.mainSocket.send("ALL_USERS: [" + users.map(User.staticToJson) +"]");
     }
 
-    if (message.startsWith("initializeSocketChat")) {
-      credentials = message.split(" ");
-      var user = new User(credentials[1], credentials[2], credentials[3]);
-      connectedUser = user; // FORSE MI SERVE SOLO STA COSA QUA
-      var socketUser = new SocketUser(user, socket);
-      // check that he is not yet registered / logged
-      //if !mainUsers.includes 
-      chatUsers.push(user);      
-      chatSocketUsers.push(socketUser);      
-      console.log("chat socket initializes");
+    // In app an user opens Chat screen
+    // "OPEN_CHAT_SOCKET:{"phone":"3347552773"}"
+    if (message.startsWith("OPEN_CHAT_SOCKET")) {
+      console.log("OPEN_CHAT_SOCKET");
+      // Here i have another connection with client, beacuse in app i connect again to this server
+      // Add this new connection as parameter of User
+      var json = JSON.parse(message.split("OPEN_CHAT_SOCKET: ")[1]);
+      var phone = json['phone'];
+      // Search client in list
+      for (i = 0; i < users.length; i++) {
+        if (users[i].phone == phone) {
+            // Add new chat socket to him! He just entered in Chat screen in app
+            users[i].chatSocket = socket;
+            // I have to assign chatUser! 
+            chatUser = users[i];
+            break;
+        }
+      }
     }
 
-    // "sendTo: phoneFede message"
-    if (message.startsWith("sendTo:")) {
-      var json = JSON.parse(message.split("sendTo: ")[1]);
+    // "SEND_TO:{"phone":"3347552773","message":"Hello, world!"}"
+    if (message.startsWith("SEND_TO")) {
+      console.log("SEND_TO");
+      var json = JSON.parse(message.split("SEND_TO: ")[1]);
       var dest = json['dest'];
       var msg = json['message'];
       // search dest and send the message in the two socket of the client
-      for (var i = 0; i < mainSocketUsers.length; i++) {
-        if (mainUsers[i].phone == dest) {
-          var message = new Message(connectedUser.phone, msg, new Date());
-          mainSocketUsers[i].socket.send("chatWith: " + JSON.stringify(message));
-          console.log("mess send to main channel");
+      for (var i = 0; i < users.length; i++) {
+        if (users[i].phone == dest) {
+          var message = new Message(chatUser.phone, msg, new Date());
+          // Send message to the 2 socket of the destination! (ChatTab & Chat screen in app)
+          users[i].mainSocket.send("MESSAGE_FROM: " + JSON.stringify(message));
+          // Check that he is in a Chat screen
+          if (users[i].chatSocket != null) {
+            users[i].chatSocket.send("MESSAGE_FROM: " + JSON.stringify(message));
+          }
+          console.log("mess send");
         }
-      }   
-      for (var i = 0; i < chatSocketUsers.length; i++) {
-        if (chatUsers[i].phone == dest) {
-          var message = new Message(connectedUser.phone, msg, new Date());
-          chatSocketUsers[i].socket.send("chatWith: " + JSON.stringify(message));
-          console.log("mess send to chat channel");
-        }
-      }   
+      }
     }
-    
   })
 })
 

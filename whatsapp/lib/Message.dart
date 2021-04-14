@@ -4,12 +4,10 @@ import 'package:intl/intl.dart';
 class Message {
   final String text;
   final bool fromServer;
-  String timestamp;
+  DateTime timestamp;
 
   Message(this.text, this.fromServer) {
-    var now = new DateTime.now();
-    var formatter = new DateFormat('HH:mm');
-    timestamp = formatter.format(now);
+    timestamp = new DateTime.now();
   }
 
 }

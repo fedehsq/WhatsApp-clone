@@ -6,8 +6,9 @@ import 'main.dart';
 
 class SelectContact extends StatefulWidget {
   final List<Contact> online;
+  final Contact lastContactChat;
 
-  const SelectContact({Key key, this.online}) : super(key: key);
+  const SelectContact({Key key, this.online, this.lastContactChat}) : super(key: key);
 
   @override
   _SelectContactState createState() => _SelectContactState();
@@ -15,7 +16,6 @@ class SelectContact extends StatefulWidget {
 
 class _SelectContactState extends State<SelectContact> {
   final contactListView = [];
-  var lastContactChat;
 
   @override
   Widget build(BuildContext context) {
@@ -54,11 +54,12 @@ class _SelectContactState extends State<SelectContact> {
           // ----- Even if i wait, the build method is called -----
           // FLUTTER IS MAGIC!
           // Start Chat screen
-          lastContactChat = await Navigator.push(
+          Contact chatter = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => Chat(contact: contact)),
           );
-          Navigator.pop(context, lastContactChat);
+          if (chatter != null) print(chatter.username);
+          Navigator.pop(context, chatter);
         },
         leading: CircleAvatar(
           radius: 25,

@@ -11,8 +11,6 @@ class Contact {
   final String username;
   final Image profileImage;
   bool toRead;
-
-  // ha associaTO UNa lista di messaggi che sarà a sua volta una classe, che contiene il timestamp
   final List<Message> messages;
 
   Contact(this.phone, this.username, this.profileImage, this.messages, this.toRead);
