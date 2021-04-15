@@ -10,7 +10,7 @@ class Contact {
   final String phone;
   final String username;
   final Image profileImage;
-  bool toRead;
+  int toRead;
   final List<Message> messages;
 
   Contact(this.phone, this.username, this.profileImage, this.messages, this.toRead);

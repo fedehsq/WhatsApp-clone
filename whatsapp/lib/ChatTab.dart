@@ -1,6 +1,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -121,7 +122,7 @@ class _ChatListState extends State<ChatList> {
     return ListTile(
       onTap: () async {
         // Remove notify icon
-        contact.toRead = false;
+        contact.toRead = 0;
         // Start Chat screen
         await Navigator.push(
           context,
@@ -160,7 +161,7 @@ class _ChatListState extends State<ChatList> {
                   DateFormat('HH:mm').format(
                       contact.messages[contact.messages.length - 1].timestamp),
                   style: TextStyle(
-                      color: contact.toRead ? SECONDARY_COLOR : Colors.grey,
+                      color: contact.toRead > 0 ? SECONDARY_COLOR : Colors.grey,
                       fontSize: 10),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -194,12 +195,21 @@ class _ChatListState extends State<ChatList> {
                       ),
                     ],
                   ),
-                  // Show notification of there is a message to read
-                  if (contact.toRead)
+                  // Show notification if there is a message to read
+                  if (contact.toRead > 0)
                     Padding(
                       padding: const EdgeInsets.only(right: 4.0),
-                      child: Icon(
-                          Icons.circle, color: SECONDARY_COLOR, size: 18),
+                      child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                                Icons.circle, color: SECONDARY_COLOR, size: 20),
+                            Text('${contact.toRead}', style: TextStyle(
+                                color: PRIMARY_COLOR,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold),)
+                          ]
+                      ),
                     )
                 ]),
           ),
@@ -262,7 +272,7 @@ class _ChatListState extends State<ChatList> {
         jsonUser['username'],
         Image.memory(base64Decode(jsonUser['photo'])),
         [Message('', true)], // message list
-        false // No message to read when user comes online
+        0 // No message to read when user comes online
     );
   }
 
@@ -273,7 +283,7 @@ class _ChatListState extends State<ChatList> {
         itemCount: l.length,
         itemBuilder: (BuildContext context, int index) {
           return contacts[index].messages.length > 1 ? l[index] : Divider(
-              thickness: 0.0);
+              thickness: 0.0, height: 0.0);
         });
   }
 
@@ -306,7 +316,7 @@ class _ChatListState extends State<ChatList> {
       if (contact.phone == phone) {
         lastContactChat = contact;
         // New message to read! ()
-        contact.toRead = true;
+        contact.toRead++;
         contact.messages.add(Message(message, true));
         // put his message as head of chat list
         return sortContacts(contact.phone);

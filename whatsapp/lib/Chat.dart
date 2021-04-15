@@ -24,24 +24,30 @@ class Chat extends StatefulWidget {
 class _ChatState extends State<Chat> {
   // for user input
   final TextEditingController messageController = TextEditingController();
+
   // connect to server when open a Chat Screen
   final IOWebSocketChannel chatChannel = IOWebSocketChannel
       .connect('ws://192.168.1.12:8080');
+
   // text messages view
   final chatListView = [];
+
   // chat must scroll down at every received message
   ScrollController controller = ScrollController();
+
   // read from user
-  var input;
+  String input = '';
+
   // initialize the chat
-  var first = true;
+  bool first = true;
+
   // Stop looping if there is also the same message on the stream
   var lastMessage = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromARGB(255, 8, 24, 33),
+        backgroundColor: Color.fromARGB(255, 8, 24, 33),
         appBar: AppBar(
           backgroundColor: PRIMARY_COLOR,
           automaticallyImplyLeading: false,
@@ -57,7 +63,7 @@ class _ChatState extends State<Chat> {
                       icon: Icon(Icons.arrow_back),
                       // Remove the flag of notification from this chat
                       onPressed: () {
-                        widget.contact.toRead = false;
+                        widget.contact.toRead = 0;
                         Navigator.pop(context, widget.contact);
                       }
                   )
@@ -92,7 +98,8 @@ class _ChatState extends State<Chat> {
               // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
-                var json = jsonDecode('${snapshot.data}'.split("MESSAGE_FROM: ")[1]);
+                var json = jsonDecode(
+                    '${snapshot.data}'.split("MESSAGE_FROM: ")[1]);
                 // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
                 // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
                 if (widget.contact.phone == json['phone']) {
@@ -116,13 +123,6 @@ class _ChatState extends State<Chat> {
                               controller: controller,
                               itemCount: chatListView.length,
                               itemBuilder: (BuildContext context, int index) {
-                                // after 300 ms scroll down the list
-                                Timer(Duration(milliseconds: 300), () {
-                                  try {
-                                    controller.jumpTo(
-                                        controller.position.maxScrollExtent);
-                                  } catch (e) {}
-                                });
                                 return chatListView[index];
                               }),
                         ),
@@ -180,27 +180,33 @@ class _ChatState extends State<Chat> {
                                   IconButton(onPressed: () {
                                     // save user input
                                     input = messageController.text;
-                                    Message m = Message(input, false);
-                                    widget.contact.messages.add(m);
-                                    chatListView.add(buildMessageLayout(
-                                        m));
-                                    messageController.text = '';
-                                    // encode message as Json object
-                                    var jsonMessage = jsonEncode(InstantMessage(
-                                        widget.contact.phone, input).toJson());
-                                    String message = "SEND_TO: " + jsonMessage;
-                                    setState(() {
-                                      // send to server
-                                      chatChannel.sink.add(message);
-                                    });
-                                    // after 300 ms scroll down the list
-                                    Timer(Duration(milliseconds: 300), () {
-                                      try {
-                                        controller.jumpTo(
-                                            controller.position
-                                                .maxScrollExtent);
-                                      } catch (e) {}
-                                    });
+                                    if (input.isNotEmpty) {
+                                      Message m = Message(input, false);
+                                      widget.contact.messages.add(m);
+                                      chatListView.add(buildMessageLayout(
+                                          m));
+                                      messageController.text = '';
+                                      // encode message as Json object
+
+                                      var jsonMessage = jsonEncode(
+                                          InstantMessage(
+                                              widget.contact.phone, input)
+                                              .toJson());
+                                      String message = "SEND_TO: " +
+                                          jsonMessage;
+                                      setState(() {
+                                        // send to server
+                                        chatChannel.sink.add(message);
+                                      });
+                                      // after 300 ms scroll down the list
+                                      Timer(Duration(milliseconds: 300), () {
+                                        try {
+                                          controller.jumpTo(
+                                              controller.position
+                                                  .maxScrollExtent);
+                                        } catch (e) {}
+                                      });
+                                    }
                                   },
                                       icon: Icon(
                                           Icons.send, color: Colors.white)
@@ -262,7 +268,9 @@ class _ChatState extends State<Chat> {
                         // Very tricky
                         Padding(
                           padding: const EdgeInsets.only(left: 8.0, right: 2),
-                          child: Text(DateFormat('HH:mm').format(widget.contact.messages[widget.contact.messages.length - 1].timestamp),
+                          child: Text(DateFormat('HH:mm').format(
+                              widget.contact.messages[widget.contact.messages
+                                  .length - 1].timestamp),
                               style: TextStyle(
                                   color: Colors.transparent,
                                   fontSize: 10)
@@ -279,7 +287,9 @@ class _ChatState extends State<Chat> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(left: 8.0, right: 2),
-                          child: Text(DateFormat('HH:mm').format(widget.contact.messages[widget.contact.messages.length - 1].timestamp),
+                          child: Text(DateFormat('HH:mm').format(
+                              widget.contact.messages[widget.contact.messages
+                                  .length - 1].timestamp),
                               style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 10)
@@ -309,8 +319,17 @@ class _ChatState extends State<Chat> {
     SharedPreferences.getInstance().then((value) {
       var json = {'phone': value.getString(PHONE_NUMBER)};
       chatChannel.sink.add('OPEN_CHAT_SOCKET: ' + jsonEncode(json));
+      // Scroll to the end of list
       setState(() {
         buildInitialList();
+        // after 300 ms scroll down the list
+        Timer(Duration(milliseconds: 300), () {
+          try {
+            controller.jumpTo(
+                controller.position
+                    .maxScrollExtent);
+          } catch (e) {}
+        });
       });
     });
   }
