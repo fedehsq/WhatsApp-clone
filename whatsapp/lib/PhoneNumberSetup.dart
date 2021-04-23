@@ -259,7 +259,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
                                     MIN_WIDTH ? 11 : 12)
                             )
                           ]
-                      )),
+                      )
+                      ),
                     ),
                   )
                 ],

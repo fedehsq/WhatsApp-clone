@@ -24,7 +24,8 @@ class ChatList extends StatefulWidget {
 /// FLUTTER BUILDS THE CHAT LIST WITH THESE ITEMS
 /// --------------------------------------------------------
 
-class _ChatListState extends State<ChatList> {
+/// WidgetsBindingObserver needed to manage offline status of user
+class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
 
   // Connect to server
   final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
@@ -33,6 +34,7 @@ class _ChatListState extends State<ChatList> {
   final List<Contact> contacts = [];
   // All ListTile (UI chat)
   final List<ListTile> contactsListView = [];
+
 
   // Last contact with whom i've chatted, thanks to this variable,
   // when i receive a message, the sender is put as head in the chat list
@@ -43,6 +45,31 @@ class _ChatListState extends State<ChatList> {
 
   // Stop looping if there is also the same message on the stream
   String lastMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    //WidgetsBinding.instance!.addObserver(this);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Send offline status to server
+    if (state == AppLifecycleState.paused) {
+      SharedPreferences.getInstance().then((value) {
+        var json = {'phone': value.getString(PHONE_NUMBER)};
+        mainChannel.sink.add('LOGOUT: ' + jsonEncode(json));
+        mainChannel.sink.close();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,27 +92,35 @@ class _ChatListState extends State<ChatList> {
                 var json = '${snapshot.data}'.split(": ")[1];
                 // Switch operations
                 switch (message) {
-                // In this case, update chat list with new online user
-                // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
+                  // In this case, update chat list with new online user
+                  // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
                   case "NEW_USER":
-                  // Add the new user without shows him because there aren't messages
+                    // Add the new user without shows him because there aren't messages
                     return addContact(json);
-                // Server send to just logged client the list of other users
-                  case "ALL_USERS":
-                    return addAllContacts(json);
-                // In this case, an user send me a message, so update chat list
-                // chatWith: {phone: "zzz", message"xxxx"}
+
+                  // In this case, an user send me a message, so update chat list
+                  // chatWith: {phone: "zzz", message"xxxx"}
                   case "MESSAGE_FROM":
                     return updateListViewWithMessage(json);
-                // impossible case
-                  default:
-                    return Text('');
+
+                  // In this case, an user leaved the app,
+                  // so change his status to offline
+                  case "LOGOUT":
+                    print(json);
+                    var decode = jsonDecode(json);
+                    var phone = decode['phone'];
+                    print(phone);
+                    for (var contact in contacts) {
+                      if (contact.phone == phone) {
+                        contact.isOnline = false;
+                      }
+                    }
+                    break;
                 }
                 // idle, nothing happens
-              } else {
-                // Simply build list view if there is some chat
-                return buildChatList();
               }
+              // Simply build list view if there is some chat
+              return buildChatList();
             }),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
@@ -271,8 +306,6 @@ class _ChatListState extends State<ChatList> {
         jsonUser['phone'],
         jsonUser['username'],
         Image.memory(base64Decode(jsonUser['photo'])),
-        [Message('', true)], // message list
-        0 // No message to read when user comes online
     );
   }
 
@@ -285,17 +318,6 @@ class _ChatListState extends State<ChatList> {
           return contacts[index].messages.length > 1 ? l[index] : Divider(
               thickness: 0.0, height: 0.0);
         });
-  }
-
-  /// When a new user comes online, Server send to him all connected users
-  addAllContacts(String json) {
-    var jsonUsersArray = jsonDecode(json);
-    for (var jsonUser in jsonUsersArray) {
-      Contact c = buildContact(jsonUser);
-      contacts.add(c);
-      contactsListView.add(buildListTile(c));
-    }
-    return buildListView(contactsListView);
   }
 
   /// When a new user comes online, Server send to all other clients this user

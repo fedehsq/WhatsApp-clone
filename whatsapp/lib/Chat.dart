@@ -48,46 +48,6 @@ class _ChatState extends State<Chat> {
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: Color.fromARGB(255, 8, 24, 33),
-        appBar: AppBar(
-          backgroundColor: PRIMARY_COLOR,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0.0,
-          title: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                  width: 32,
-                  child: IconButton(
-                      icon: Icon(Icons.arrow_back),
-                      // Remove the flag of notification from this chat
-                      onPressed: () {
-                        widget.contact.toRead = 0;
-                        Navigator.pop(context, widget.contact);
-                      }
-                  )
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: CircleAvatar(
-                  backgroundImage: widget.contact.profileImage.image,
-                  //widget.contact.profileImage,
-                  backgroundColor: PRIMARY_COLOR,),
-              ),
-              Text(widget.contact.username),
-            ],
-          ),
-          actions: [
-            IconButton(
-                onPressed: () => {},
-                icon: Icon(Icons.videocam_rounded)),
-            IconButton(onPressed: () => {},
-                icon: Icon(Icons.call)),
-            IconButton(onPressed: () => {},
-                icon: Icon(Icons.more_vert)),
-          ],
-        ),
         body: StreamBuilder(
             stream: chatChannel.stream,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
@@ -98,14 +58,28 @@ class _ChatState extends State<Chat> {
               // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
-                var json = jsonDecode(
-                    '${snapshot.data}'.split("MESSAGE_FROM: ")[1]);
-                // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
-                // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
-                if (widget.contact.phone == json['phone']) {
-                  Message m = Message(json['message'], true);
-                  chatListView.add(
-                      buildMessageLayout(m));
+
+                var message = '${snapshot.data}'.split(": ")[0];
+                var json = jsonDecode('${snapshot.data}'.split(": ")[1]);
+                // Switch operations
+                switch (message) {
+                  case "MESSAGE_FROM":
+                  // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
+                  // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
+                    if (widget.contact.phone == json['phone']) {
+                      Message m = Message(json['message'], true);
+                      chatListView.add(
+                          buildMessageLayout(m));
+                    }
+                    break;
+
+                  case 'LOGOUT':
+                  // A client is gone offline
+                  // Check if he is my peer
+                    if (widget.contact.phone == json['phone']) {
+                        widget.contact.isOnline = false;
+                    }
+                    break;
                 }
               }
               return Stack(
@@ -113,11 +87,62 @@ class _ChatState extends State<Chat> {
                     SingleChildScrollView(
                       child: Opacity(
                           opacity: 0.1,
-                          child: Image(
-                              image: AssetImage('images/chat_bg.png'))),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 64.0),
+                            child: Image(
+                                image: AssetImage('images/chat_bg.png')),
+                          )),
                     ),
                     Column(
                       children: [
+                        AppBar(
+                          backgroundColor: PRIMARY_COLOR,
+                          automaticallyImplyLeading: false,
+                          titleSpacing: 0.0,
+                          title: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                  width: 32,
+                                  child: IconButton(
+                                      icon: Icon(Icons.arrow_back),
+                                      // Remove the flag of notification from this chat
+                                      onPressed: () {
+                                        widget.contact.toRead = 0;
+                                        Navigator.pop(context, widget.contact);
+                                      }
+                                  )
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: CircleAvatar(
+                                  backgroundImage: widget.contact.profileImage.image,
+                                  //widget.contact.profileImage,
+                                  backgroundColor: PRIMARY_COLOR,),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(widget.contact.username),
+                                  if (widget.contact.isOnline)
+                                    Text( 'Online', style: TextStyle(fontSize: 11)
+                                    )
+                                ],
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            IconButton(
+                                onPressed: () => {},
+                                icon: Icon(Icons.videocam_rounded)),
+                            IconButton(onPressed: () => {},
+                                icon: Icon(Icons.call)),
+                            IconButton(onPressed: () => {},
+                                icon: Icon(Icons.more_vert)),
+                          ],
+                        ),
                         Expanded(
                           child: ListView.builder(
                               controller: controller,
@@ -309,6 +334,7 @@ class _ChatState extends State<Chat> {
   @override
   void dispose() {
     controller.dispose();
+    chatChannel.sink.close();
     super.dispose();
   }
 

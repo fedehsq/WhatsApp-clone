@@ -11,9 +11,14 @@ class Contact {
   final String username;
   final Image profileImage;
   int toRead;
-  final List<Message> messages;
+  bool isOnline;
+  List<Message> messages;
 
-  Contact(this.phone, this.username, this.profileImage, this.messages, this.toRead);
+  Contact(this.phone, this.username, this.profileImage) {
+    toRead = 0;
+    isOnline = true;
+    messages = [Message('', true)]; // message list
+  }
 
   @override
   String toString() {
