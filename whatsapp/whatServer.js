@@ -6,12 +6,15 @@ console.log(`[WebSocket] Starting WebSocket server on localhost:${port}`);
 
 // Represents the user "online" in the services
 class User {
-  constructor(phone, username, photo, mainSocket, chatSocket) {
+  constructor(phone, username, photo, mainSocket) {
     this.phone = phone;
     this.username = username;
     this.photo = photo;
     this.mainSocket = mainSocket;
-    this.chatSocket = chatSocket;
+    this.chatSocket = null;
+    this.isOnline = true;
+    // Enqueue messages when user is offline
+    this.offlineMessages = [];
   }
 
   // To send over socket
@@ -40,33 +43,35 @@ var users = new Map();
 
 // -----------------  JS è single thread ---------------
 // It doesn't create another thread, but different stacks, it simulates multithread 
-//=> i.e the var chatUser is different for every connection
+//=> i.e the var sessionUser is different for every connection
 
 // Every client has 2 connection with this server,
 // one stable and the other one is opened when client opens a chat 
 webServerSocket.on("connection", (socket) => {
   console.log("connected");  
   // User in session, this var is useful when I connect with 2nd connection 
-  var chatUser;
+  var sessionUser;
   // Client send a message to the server
   socket.on("message", (message) => {
     // First message sended to server from client is his credentials
     // "LOGIN:{"phone":"3347552773","username":"fede","photo":"encoded64photo"}"
     if (message.startsWith("LOGIN")) {
       console.log("LOGIN");
+      // If user is 
       let json = JSON.parse(message.split("LOGIN: ")[1]);
       // Last field is the other socket of a client, the chat socket, when he comes online, it is null
-      let user = new User(json['phone'], json['username'], json['photo'], socket, null);
+      let user = new User(json['phone'], json['username'], json['photo'], socket);
       // Send to all OTHER clients the new connected users, and send to new user all the others
       users.forEach(function(value, key) {
-      // Send to new client all users
-        user.mainSocket.send("NEW_USER: " + value.toJson())
+        // Send to new client all users
+        user.mainSocket.send("NEW_USER: " + value.toJson());
         value.mainSocket.send("NEW_USER: " + user.toJson());
       }, users);
       // send (also (for debug) himself)!
-      user.mainSocket.send("NEW_USER: " + user.toJson())
+      user.mainSocket.send("NEW_USER: " + user.toJson());
       // Add just connected user to map
       users.set(json['phone'], user);
+      console.log(user.phone);
     }
 
     // In app an user opens Chat screen
@@ -82,8 +87,8 @@ webServerSocket.on("connection", (socket) => {
       let user = users.get(phone);
       // Add new chat socket to him! He just entered in Chat screen in app
       user.chatSocket = socket;
-      // I have to assign chatUser! 
-      chatUser = user;
+      // I have to assign sessionUser! 
+      sessionUser = user;
       /// SERVER MUST SENDS TO ALL CHAT SOCKET THE PEER STATUS, SO IN CLIENT I CAN ALWAYS REBUILD THE APPBAR WITH STAUS!
       //-------------- WHEN HE SENDS ONLINE CONTACT DI LA SETTO LA VARIABILE ONLINE A TRUE, QUANDO ESCONO DALL APP, IL SERVER RIMANDA A TUTTI I CONNESSI IL NUOVO STATO=> ALLE CHAT SOCKET! PERCHE MI INTERESSA LI, QUINDI IL VALORE DA ONLINE A OFFLINE LO CAMBIO NELLA CHAT SOCKET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MA NON è VERO! ANCHE NELLE MAIN SOCKET! I.E NON SONO SULLA CHAT , UN UTENTE SI DISCONNETTE, AGGIORNO IL SUO VALORE NELLA MAIN SOCKET COSI QUANDO ENTRO IN CHAT HO IL VALORE AFFIORNto! QUINDI LO MANDO AD ENTRAMBE!
       // LOGOUT USERNAME => E NELL'APP PARSO ANCHE QUESTO CASE COME MESSAGGIO RICEVUTO, E AGGIORNO STATUS!
@@ -91,7 +96,7 @@ webServerSocket.on("connection", (socket) => {
       /*
       let peer = users.get(json['dest']);
       let status = peer == undefined ? 'OFFLINE' : 'ONLINE';
-      chatUser.send("STATUS: " + JSON.stringify(status));
+      sessionUser.send("STATUS: " + JSON.stringify(status));
       */
     }
 
@@ -102,32 +107,67 @@ webServerSocket.on("connection", (socket) => {
       let dest = json['dest'];
       let msg = json['message'];
       // Create message to send
-      let packet = new Message(chatUser.phone, msg, new Date());
+      let packet = new Message(sessionUser.phone, msg, new Date());
       // Search dest and send the message in the two socket of him
       let peer = users.get(dest);
-      // Send message to the 2 socket of the destination! (ChatTab & Chat screen in app)
-      peer.mainSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
-      // Check that if he is in a Chat screen
-      if (peer.chatSocket != null) {
-        peer.chatSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
+      // If peer is offline, enqueue the messages
+      if (!peer.isOnline) {
+        peer.offlineMessages.push(JSON.stringify(packet));
+      } else {
+        // Send message to the 2 socket of the destination! (ChatTab & Chat screen in app)
+        peer.mainSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
+        // Check that if he is in a Chat screen
+        if (peer.chatSocket != null) {
+          peer.chatSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
+        }
       }
-      console.log("mess send");
     }
 
-    // "LOGOUT:{"phone":"xxxx"}
-    if (message.startsWith("LOGOUT")) {
-        console.log("LOGOUT");
-        let json = JSON.parse(message.split("LOGOUT: ")[1]);
+    // "ONLINE:{"phone":"xxxx"}
+    // On reopen abb from bg
+    if (message.startsWith("ONLINE")) {
+      console.log("ONLINE");
+      
+      let json = JSON.parse(message.split("ONLINE: ")[1]);
+      // My id
+      let phone = json['phone'];
+      let user =  users.get(phone);
+      user.isOnline = true;
+      
+      // Send to this user the enqueued messages
+      user.mainSocket.send("MESSAGES_FROM: " + JSON.stringify(user.offlineMessages));
+      if (user.chatSocket != null) {
+        user.chatSocket.send("MESSAGES_FROM: " + JSON.stringify(user.offlineMessages));
+      }
+      user.offlineMessages = [];
+
+      // Send to all socket that user is online again
+      users.forEach(function(value) {
+        if (value != user) {
+          // Send to new client all users
+          value.mainSocket.send("ONLINE: " + '{"phone":' + '"'+ phone + '"}');
+          if (value.chatSocket != null) {
+            value.chatSocket.send("ONLINE: " + '{"phone":' + '"'+ phone + '"}');
+          }
+        }
+      }, users);
+    }
+
+    // "OFFLINE:{"phone":"xxxx"}
+    if (message.startsWith("OFFLINE")) {
+        console.log("OFFLINE");
+        let json = JSON.parse(message.split("OFFLINE: ")[1]);
         // My id
         let phone = json['phone'];
+        users.get(phone).isOnline = false;
         // Remove from map
-        users.delete(phone);
+       // users.delete(phone);
         // Send to all socket that user is nomore online
-        users.forEach(function(value, key) {
+        users.forEach(function(value) {
           // Send to new client all users
-            value.mainSocket.send("LOGOUT: " + '{"phone":' + '"'+ phone + '"}');
+            value.mainSocket.send("OFFLINE: " + '{"phone":' + '"'+ phone + '"}');
             if (value.chatSocket != null) {
-              value.chatSocket.send("LOGOUT: " + '{"phone":' + '"'+ phone + '"}')
+              value.chatSocket.send("OFFLINE: " + '{"phone":' + '"'+ phone + '"}');
             }
           }, users);
           /*

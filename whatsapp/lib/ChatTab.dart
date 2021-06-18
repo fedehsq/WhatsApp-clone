@@ -25,13 +25,14 @@ class ChatList extends StatefulWidget {
 /// --------------------------------------------------------
 
 /// WidgetsBindingObserver needed to manage offline status of user
-class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
+class _ChatListState extends State<ChatList> with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.6:8080');
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
+
   // All ListTile (UI chat)
   final List<ListTile> contactsListView = [];
 
@@ -55,13 +56,33 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Send offline status to server
-    if (state == AppLifecycleState.paused) {
-      SharedPreferences.getInstance().then((value) {
-        var json = {'phone': value.getString(PHONE_NUMBER)};
-        mainChannel.sink.add('LOGOUT: ' + jsonEncode(json));
-        mainChannel.sink.close();
-      });
+    switch (state) {
+    // Re-open from bg
+      case AppLifecycleState.resumed:
+        print("resumed");
+        // Next time in app opening, send online to all
+        SharedPreferences.getInstance().then((value) {
+          var json = {'phone': value.getString(PHONE_NUMBER)};
+          mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
+        });
+        break;
+    // Just a second before 'paused'
+      case AppLifecycleState.inactive:
+        print("inactive");
+        break;
+    // App still opens in bg
+      case AppLifecycleState.paused:
+        print("paused");
+        // Send offline status to server
+        SharedPreferences.getInstance().then((value) {
+          var json = {'phone': value.getString(PHONE_NUMBER)};
+          mainChannel.sink.add('OFFLINE: ' + jsonEncode(json));
+        });
+        break;
+    // On hard close app (remove from bg)
+      case AppLifecycleState.detached:
+        print("detached");
+        break;
     }
   }
 
@@ -81,7 +102,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
               if (firstClientMessage) {
                 logIn();
                 // Shows a blank page while waiting for first server response
-                return Text('');
+                return buildChatList();
               }
               // Check if server sends me something, ignoring the same data
               // The first part of message is the operation identifier,
@@ -92,24 +113,26 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
                 var json = '${snapshot.data}'.split(": ")[1];
                 // Switch operations
                 switch (message) {
-                  // In this case, update chat list with new online user
-                  // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
+                // In this case, update chat list with new online user
+                // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
                   case "NEW_USER":
-                    // Add the new user without shows him because there aren't messages
+                    print("nre user");
+                  // Add the new user without shows him because there aren't messages
                     return addContact(json);
 
-                  // In this case, an user send me a message, so update chat list
-                  // chatWith: {phone: "zzz", message"xxxx"}
+                // In this case, an user send me a message, so update chat list
+                // chatWith: {phone: "zzz", message"xxxx"}
                   case "MESSAGE_FROM":
                     return updateListViewWithMessage(json);
 
+                // One or more message, while I am offline
+                  case "MESSAGES_FROM":
+                    return updateListViewWithMessages(json);
                   // In this case, an user leaved the app,
                   // so change his status to offline
                   case "LOGOUT":
-                    print(json);
                     var decode = jsonDecode(json);
                     var phone = decode['phone'];
-                    print(phone);
                     for (var contact in contacts) {
                       if (contact.phone == phone) {
                         contact.isOnline = false;
@@ -127,7 +150,8 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
             Contact contact = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (BuildContext context) =>
-                    SelectContact(online: contacts, lastContactChat: lastContactChat)
+                    SelectContact(
+                        online: contacts, lastContactChat: lastContactChat)
                 )
             );
             // Check if i have to change list order
@@ -139,9 +163,10 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
             }
             if (contact != null && lastContactChat != null
                 && contact.messages[contact.messages.length - 1].timestamp
-                .isAfter(
-                lastContactChat.messages[lastContactChat.messages.length - 1]
-                    .timestamp)) {
+                    .isAfter(
+                    lastContactChat.messages[lastContactChat.messages.length -
+                        1]
+                        .timestamp)) {
               setState(() {
                 lastContactChat = contact;
               });
@@ -257,30 +282,26 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
 
   /// At every received message, add last message in the preview and put
   /// sender as head item, the last items don't change
-  ListView sortContacts(String sender) {
+  sortContacts(String sender) {
     for (int i = 0; i < contacts.length; i++) {
       if (contacts[i].phone == sender) {
         // Put him in head
         Contact c = contacts.removeAt(i);
         contactsListView.removeAt(i);
-        print(c.messages.length);
         contactsListView.insert(0, buildListTile(c));
         contacts.insert(0, c);
         break;
       }
     }
-    return buildListView(contactsListView);
   }
 
   /// Build the chat list view
   buildChatList() {
-    if (lastContactChat != null) {
-      print(lastContactChat.username);
-    }
     if (contacts.isNotEmpty) {
-      return sortContacts(lastContactChat == null
+      sortContacts(lastContactChat == null
           ? contacts[0].phone
           : lastContactChat.phone);
+      return buildListView(contactsListView);
     } else {
       return Text('');
     }
@@ -303,9 +324,9 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
   /// Build a contact parsing from json
   buildContact(dynamic jsonUser) {
     return Contact(
-        jsonUser['phone'],
-        jsonUser['username'],
-        Image.memory(base64Decode(jsonUser['photo'])),
+      jsonUser['phone'],
+      jsonUser['username'],
+      Image.memory(base64Decode(jsonUser['photo'])),
     );
   }
 
@@ -341,10 +362,21 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver {
         contact.toRead++;
         contact.messages.add(Message(message, true));
         // put his message as head of chat list
-        return sortContacts(contact.phone);
+        sortContacts(contact.phone);
       }
     }
+    return buildListView(contactsListView);
   }
+
+  /// Another client sends me a message while I am offline, update list view pushing him as head
+  updateListViewWithMessages(String jsonString) {
+    var json = jsonDecode(jsonString);
+    for (var msg in json) {
+      updateListViewWithMessage(msg);
+    }
+    return buildListView(contactsListView);
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }
-
-

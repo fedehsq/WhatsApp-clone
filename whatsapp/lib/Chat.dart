@@ -21,13 +21,13 @@ class Chat extends StatefulWidget {
   _ChatState createState() => _ChatState();
 }
 
-class _ChatState extends State<Chat> {
+class _ChatState extends State<Chat> with WidgetsBindingObserver {
   // for user input
   final TextEditingController messageController = TextEditingController();
 
   // connect to server when open a Chat Screen
-  final IOWebSocketChannel chatChannel = IOWebSocketChannel
-      .connect('ws://192.168.1.12:8080');
+  IOWebSocketChannel chatChannel = IOWebSocketChannel
+      .connect('ws://192.168.1.6:8080');
 
   // text messages view
   final chatListView = [];
@@ -41,8 +41,50 @@ class _ChatState extends State<Chat> {
   // initialize the chat
   bool first = true;
 
+  // Index of notification messages, so i know how to remove it in O(1)
+  // when tap ok keyboard
+  int notifyPosition = -1;
+
   // Stop looping if there is also the same message on the stream
   var lastMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    //WidgetsBinding.instance!.addObserver(this);
+   // WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+    // Re-open from bg
+      case AppLifecycleState.resumed:
+        print("resumed");
+        // Next time in app opening, login again
+        first = true;
+        chatChannel = IOWebSocketChannel.connect('ws://192.168.1.6:8080');
+        break;
+    // Just a second before 'paused'
+      case AppLifecycleState.inactive:
+        print("inactive");
+        break;
+    // App still opens in bg
+      case AppLifecycleState.paused:
+        print("paused");
+        // Send offline status to server
+        SharedPreferences.getInstance().then((value) {
+          var json = {'phone': value.getString(PHONE_NUMBER)};
+          chatChannel.sink.add('LOGOUT: ' + jsonEncode(json));
+          chatChannel.sink.close();
+        });
+        break;
+    // On hard close app (remove from bg)
+      case AppLifecycleState.detached:
+        print("detached");
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,26 +103,69 @@ class _ChatState extends State<Chat> {
 
                 var message = '${snapshot.data}'.split(": ")[0];
                 var json = jsonDecode('${snapshot.data}'.split(": ")[1]);
+
                 // Switch operations
                 switch (message) {
+                  // Single message, when I am online
                   case "MESSAGE_FROM":
-                  // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
-                  // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
+                    // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
+                    // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
                     if (widget.contact.phone == json['phone']) {
                       Message m = Message(json['message'], true);
                       chatListView.add(
                           buildMessageLayout(m));
                     }
                     break;
+                  // One or more message, while I am offline
+                  case "MESSAGES_FROM":
+                    // How many messages have I received while I was offline?
+                    int toRead = 0;
+                    for (var message in json) {
+                      toRead++;
+                      var json = jsonDecode(message);
+                      if (widget.contact.phone == json['phone']) {
+                        Message m = Message(json['message'], true);
+                        chatListView.add(buildMessageLayout(m));
+                      }
+                    }
+                    if (toRead > 0) {
+                      chatListView.insert(
+                          notifyPosition = chatListView.length - toRead,
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Opacity(opacity: 0.5
+                                ,
+                                child: Center(child: Text(
+                                  '$toRead nuovi messaggi', style: TextStyle(
+                                    color: Colors.white),))),
+                          ));
+                    }
 
-                  case 'LOGOUT':
+                    break;
                   // A client is gone offline
+                  case 'OFFLINE':
                   // Check if he is my peer
                     if (widget.contact.phone == json['phone']) {
-                        widget.contact.isOnline = false;
+                      widget.contact.isOnline = false;
+                    }
+                    break;
+
+                  // A client is coming online
+                  case 'ONLINE':
+                  // Check if he is my peer
+                    if (widget.contact.phone == json['phone']) {
+                      widget.contact.isOnline = true;
                     }
                     break;
                 }
+                // after 300 ms scroll down the list
+                Timer(Duration(milliseconds: 500), () {
+                  try {
+                    controller.jumpTo(
+                        controller.position
+                            .maxScrollExtent);
+                  } catch (e) {}
+                });
               }
               return Stack(
                   children: [
@@ -125,9 +210,12 @@ class _ChatState extends State<Chat> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(widget.contact.username),
+                                  Text(widget.contact.username, style: TextStyle(fontSize: 17)),
                                   if (widget.contact.isOnline)
-                                    Text( 'Online', style: TextStyle(fontSize: 11)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4.0),
+                                      child: Text( 'Online', style: TextStyle(fontSize: 10)
+                                      ),
                                     )
                                 ],
                               ),
@@ -157,6 +245,20 @@ class _ChatState extends State<Chat> {
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 8.0),
                                 child: TextField(
+                                  onTap: () {
+                                    Timer(Duration(milliseconds: 500), () {
+                                      try {
+                                        controller.jumpTo(controller.position.maxScrollExtent);
+                                      } catch (e) {}
+                                    });
+                                    // Remove message that indicates notification
+                                    if (notifyPosition != -1) {
+                                      setState(() {
+                                        chatListView.removeAt(notifyPosition);
+                                        notifyPosition = -1;
+                                      });
+                                    }
+                                  },
                                   onChanged: (String value) {
                                     // Set photo icon if text is empty
                                     setState(() {});
@@ -224,7 +326,7 @@ class _ChatState extends State<Chat> {
                                         chatChannel.sink.add(message);
                                       });
                                       // after 300 ms scroll down the list
-                                      Timer(Duration(milliseconds: 300), () {
+                                      Timer(Duration(milliseconds: 500), () {
                                         try {
                                           controller.jumpTo(
                                               controller.position
@@ -349,7 +451,7 @@ class _ChatState extends State<Chat> {
       setState(() {
         buildInitialList();
         // after 300 ms scroll down the list
-        Timer(Duration(milliseconds: 300), () {
+        Timer(Duration(milliseconds: 500), () {
           try {
             controller.jumpTo(
                 controller.position
