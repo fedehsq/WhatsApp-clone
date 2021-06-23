@@ -1,10 +1,12 @@
-const WebSocket = require("ws");
+const WebSocket = require('ws');
+const fs = require('fs');
+
 // start the server and specify the port number
 const port = 8080;
 const webServerSocket = new WebSocket.Server({ port: port });
 console.log(`[WebSocket] Starting WebSocket server on localhost:${port}`);
 
-// Represents the user "online" in the services
+// Represents the registered onlineUsers in the service
 class User {
   constructor(phone, username, photo, mainSocket) {
     this.phone = phone;
@@ -35,11 +37,25 @@ class Message {
 }
 
 
-// ------- MAYBE I SHOULD USE SOCKET AS ID, SO WHEN A CLIENT LOGOUT I CAN DISCONNECT HIM QUICLY RATHER THAN ITERATE OVER MAP
-// OPPURE NELLA ONDISPOSE MANDO UN ULTIMO MESSAGGIO AL SERVER "LOGOUT" COSI POSSO USARE L USERNAME COME CHIAVE
+// This contains onlineUsers logged (<phone, [phone, username, photo, mainSocket, chatSocket]> )
+var onlineUsers = new Map(); 
 
-// This contains users logged (<phone, [phone, username, photo, mainSocket, chatSocket]> )
-var users = new Map(); 
+var registeredUsers = new Map(); 
+// Read map from file
+fs.readFile('users.json', 'utf8' , (err, data) => {
+  if (data != '') {
+    let j = JSON.parse(data);
+    j.forEach(function(user) {
+      // read all registered users
+      registeredUsers.set(user['phone'], user);
+    }, j);
+  }
+})
+
+const mapToAoO = m => {
+  return Array.from(m).map(([k,v]) => {return {[k]:v}});
+};
+
 
 // -----------------  JS è single thread ---------------
 // It doesn't create another thread, but different stacks, it simulates multithread 
@@ -51,8 +67,42 @@ webServerSocket.on("connection", (socket) => {
   console.log("connected");  
   // User in session, this var is useful when I connect with 2nd connection 
   var sessionUser;
-  // Client send a message to the server
+  // Client send the register request message to the server
   socket.on("message", (message) => {
+    // Request of registration, client sends only phone number
+    if (message.startsWith("REQUEST")) {
+      console.log("REQUEST");
+      // If user is 
+      let json = JSON.parse(message.split("REQUEST: ")[1]);
+      // Try to get the user
+      let phone = json['phone'];
+      // Get client from map
+      let user = registeredUsers.get(phone);
+      if (user == null) {
+        socket.send("OK");
+      } else {
+        socket.send("KO");
+      }
+    }
+
+    // Client registration
+    if (message.startsWith("REGISTER")) {
+        console.log("REGISTER");
+        // If user is 
+        let json = JSON.parse(message.split("REGISTER: ")[1]);
+        // Save user to map
+        let user = new User(json['phone'], json['username'], json['photo'], null);
+        // Add just registered user to map
+        registeredUsers.set(json['phone'], user);
+        // Write data in 'Output.txt' .
+        fs.writeFile('users.json', JSON.stringify(mapToAoO(registeredUsers)), function(err) {
+          if (err) {
+            return console.log(err);
+          }
+        }); 
+        socket.send("OK");
+    }
+
     // First message sended to server from client is his credentials
     // "LOGIN:{"phone":"3347552773","username":"fede","photo":"encoded64photo"}"
     if (message.startsWith("LOGIN")) {
@@ -61,17 +111,16 @@ webServerSocket.on("connection", (socket) => {
       let json = JSON.parse(message.split("LOGIN: ")[1]);
       // Last field is the other socket of a client, the chat socket, when he comes online, it is null
       let user = new User(json['phone'], json['username'], json['photo'], socket);
-      // Send to all OTHER clients the new connected users, and send to new user all the others
-      users.forEach(function(value, key) {
-        // Send to new client all users
+      // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
+      registeredUsers.forEach(function(value) {
+        // Send to new client all registered users
         user.mainSocket.send("NEW_USER: " + value.toJson());
-        value.mainSocket.send("NEW_USER: " + user.toJson());
-      }, users);
+        //value.mainSocket.send("NEW_USER: " + user.toJson());
+      }, registeredUsers);
       // send (also (for debug) himself)!
-      user.mainSocket.send("NEW_USER: " + user.toJson());
+     // user.mainSocket.send("NEW_USER: " + user.toJson());
       // Add just connected user to map
-      users.set(json['phone'], user);
-      console.log(user.phone);
+      onlineUsers.set(json['phone'], user);
     }
 
     // In app an user opens Chat screen
@@ -84,7 +133,7 @@ webServerSocket.on("connection", (socket) => {
       // My id
       let phone = json['phone'];
       // Get client from map
-      let user = users.get(phone);
+      let user = onlineUsers.get(phone);
       // Add new chat socket to him! He just entered in Chat screen in app
       user.chatSocket = socket;
       // I have to assign sessionUser! 
@@ -94,7 +143,7 @@ webServerSocket.on("connection", (socket) => {
       // LOGOUT USERNAME => E NELL'APP PARSO ANCHE QUESTO CASE COME MESSAGGIO RICEVUTO, E AGGIORNO STATUS!
       // SERVER INVIA STATUS 'OFFLINE' E IL NOME DELL USCENTE! NELL APP CONTROLLO CHE COTACT.PHONE == USCENTE PER NASCONDERE LO STATUS ONLINE
       /*
-      let peer = users.get(json['dest']);
+      let peer = onlineUsers.get(json['dest']);
       let status = peer == undefined ? 'OFFLINE' : 'ONLINE';
       sessionUser.send("STATUS: " + JSON.stringify(status));
       */
@@ -109,7 +158,7 @@ webServerSocket.on("connection", (socket) => {
       // Create message to send
       let packet = new Message(sessionUser.phone, msg, new Date());
       // Search dest and send the message in the two socket of him
-      let peer = users.get(dest);
+      let peer = onlineUsers.get(dest);
       // If peer is offline, enqueue the messages
       if (!peer.isOnline) {
         peer.offlineMessages.push(JSON.stringify(packet));
@@ -131,7 +180,7 @@ webServerSocket.on("connection", (socket) => {
       let json = JSON.parse(message.split("ONLINE: ")[1]);
       // My id
       let phone = json['phone'];
-      let user =  users.get(phone);
+      let user =  onlineUsers.get(phone);
       user.isOnline = true;
       
       // Send to this user the enqueued messages
@@ -142,15 +191,15 @@ webServerSocket.on("connection", (socket) => {
       user.offlineMessages = [];
 
       // Send to all socket that user is online again
-      users.forEach(function(value) {
+      onlineUsers.forEach(function(value) {
         if (value != user) {
-          // Send to new client all users
+          // Send to new client all onlineUsers
           value.mainSocket.send("ONLINE: " + '{"phone":' + '"'+ phone + '"}');
           if (value.chatSocket != null) {
             value.chatSocket.send("ONLINE: " + '{"phone":' + '"'+ phone + '"}');
           }
         }
-      }, users);
+      }, onlineUsers);
     }
 
     // "OFFLINE:{"phone":"xxxx"}
@@ -159,29 +208,27 @@ webServerSocket.on("connection", (socket) => {
         let json = JSON.parse(message.split("OFFLINE: ")[1]);
         // My id
         let phone = json['phone'];
-        users.get(phone).isOnline = false;
+        onlineUsers.get(phone).isOnline = false;
         // Remove from map
-       // users.delete(phone);
+       // onlineUsers.delete(phone);
         // Send to all socket that user is nomore online
-        users.forEach(function(value) {
-          // Send to new client all users
+        onlineUsers.forEach(function(value) {
+          // Send to new client all onlineUsers
             value.mainSocket.send("OFFLINE: " + '{"phone":' + '"'+ phone + '"}');
             if (value.chatSocket != null) {
               value.chatSocket.send("OFFLINE: " + '{"phone":' + '"'+ phone + '"}');
             }
-          }, users);
+          }, onlineUsers);
           /*
-        users.forEach(function(key, value) {
+        onlineUsers.forEach(function(key, value) {
           // Main socket
           value.mainSocket.send("LOGOUT: " + JSON.stringify(phone));
           // Check if user is on Chat tab
           if (value.chatSocket != null) {
             value.chatSocket.send("LOGOUT: " + JSON.stringify(phone))
           }
-        }, users);
+        }, onlineUsers);
         */
-
-
     }
   })
 })

@@ -27,7 +27,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
 
   // connect to server when open a Chat Screen
   IOWebSocketChannel chatChannel = IOWebSocketChannel
-      .connect('ws://192.168.1.6:8080');
+      .connect('ws://192.168.116.224:8080');
 
   // text messages view
   final chatListView = [];

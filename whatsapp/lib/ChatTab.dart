@@ -28,7 +28,7 @@ class ChatList extends StatefulWidget {
 class _ChatListState extends State<ChatList> with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.6:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.116.224:8080');
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
@@ -101,6 +101,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
               // Connection just done, client authentication
               if (firstClientMessage) {
                 logIn();
+                print("HERE");
                 // Shows a blank page while waiting for first server response
                 return buildChatList();
               }
@@ -116,7 +117,6 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
                 // In this case, update chat list with new online user
                 // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
                   case "NEW_USER":
-                    print("nre user");
                   // Add the new user without shows him because there aren't messages
                     return addContact(json);
 
@@ -204,7 +204,8 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
       },
       leading: CircleAvatar(
           radius: 25,
-          backgroundImage: contact.profileImage.image),
+          backgroundImage: contact.profileImage != null? contact.profileImage.image : AssetImage(
+              'images/default_profile_pic.png')),
       title:
       Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
