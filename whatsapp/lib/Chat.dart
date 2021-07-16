@@ -27,7 +27,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
 
   // connect to server when open a Chat Screen
   IOWebSocketChannel chatChannel = IOWebSocketChannel
-      .connect('ws://192.168.116.224:8080');
+      .connect('ws://192.168.1.12:8080');
 
   // text messages view
   final chatListView = [];
@@ -214,7 +214,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                   if (widget.contact.isOnline)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4.0),
-                                      child: Text( 'Online', style: TextStyle(fontSize: 10)
+                                      child: Text('Online', style: TextStyle(fontSize: 10)
                                       ),
                                     )
                                 ],
@@ -445,8 +445,8 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
     first = !first;
     // Read from SharedPreferences
     SharedPreferences.getInstance().then((value) {
-      var json = {'phone': value.getString(PHONE_NUMBER)};
-      chatChannel.sink.add('OPEN_CHAT_SOCKET: ' + jsonEncode(json));
+      var messages = [{'phone': value.getString(PHONE_NUMBER)}, {'dest': widget.contact.phone}];
+      chatChannel.sink.add('OPEN_CHAT_SOCKET: ' + jsonEncode(messages));
       // Scroll to the end of list
       setState(() {
         buildInitialList();

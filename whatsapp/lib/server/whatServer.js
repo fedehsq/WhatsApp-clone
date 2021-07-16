@@ -7,7 +7,7 @@ const webServerSocket = new WebSocket.Server({ port: port });
 console.log(`[WebSocket] Starting WebSocket server on localhost:${port}`);
 
 // Represents the registered onlineUsers in the service
-class User {
+class ServiceUser {
   constructor(phone, username, photo, mainSocket) {
     this.phone = phone;
     this.username = username;
@@ -18,11 +18,11 @@ class User {
     // Enqueue messages when user is offline
     this.offlineMessages = [];
   }
+}
 
-  // To send over socket
-  toJson() {
-    return '{"phone":' + '"'+ this.phone + '", "username":' + '"'+ this.username + '", "photo":' + '"'+ this.photo + '"}';
-  }
+ // To send over socket
+ function toJson(user) {
+  return '{"phone":' + '"'+ user.phone + '", "username":' + '"'+ user.username + '", "photo":' + '"'+ user.photo + '"}';
 }
 
 // Sender phone number, text message, timestamp.
@@ -52,10 +52,6 @@ fs.readFile('users.json', 'utf8' , (err, data) => {
   }
 })
 
-const mapToAoO = m => {
-  return Array.from(m).map(([k,v]) => {return {[k]:v}});
-};
-
 
 // -----------------  JS è single thread ---------------
 // It doesn't create another thread, but different stacks, it simulates multithread 
@@ -64,8 +60,8 @@ const mapToAoO = m => {
 // Every client has 2 connection with this server,
 // one stable and the other one is opened when client opens a chat 
 webServerSocket.on("connection", (socket) => {
-  console.log("connected");  
-  // User in session, this var is useful when I connect with 2nd connection 
+  console.log("CONNECTION");  
+  // ServiceUser in session, this var is useful when I connect with 2nd connection 
   var sessionUser;
   // Client send the register request message to the server
   socket.on("message", (message) => {
@@ -80,6 +76,7 @@ webServerSocket.on("connection", (socket) => {
       let user = registeredUsers.get(phone);
       if (user == null) {
         socket.send("OK");
+        socket.close();
       } else {
         socket.send("KO");
       }
@@ -91,16 +88,17 @@ webServerSocket.on("connection", (socket) => {
         // If user is 
         let json = JSON.parse(message.split("REGISTER: ")[1]);
         // Save user to map
-        let user = new User(json['phone'], json['username'], json['photo'], null);
+        let user = new ServiceUser(json['phone'], json['username'], json['photo'], null);
         // Add just registered user to map
         registeredUsers.set(json['phone'], user);
         // Write data in 'Output.txt' .
-        fs.writeFile('users.json', JSON.stringify(mapToAoO(registeredUsers)), function(err) {
+        fs.writeFile('users.json', JSON.stringify(Array.from(registeredUsers.values())), function(err) {
           if (err) {
             return console.log(err);
           }
         }); 
         socket.send("OK");
+        socket.close();
     }
 
     // First message sended to server from client is his credentials
@@ -110,15 +108,16 @@ webServerSocket.on("connection", (socket) => {
       // If user is 
       let json = JSON.parse(message.split("LOGIN: ")[1]);
       // Last field is the other socket of a client, the chat socket, when he comes online, it is null
-      let user = new User(json['phone'], json['username'], json['photo'], socket);
+      let user = new ServiceUser(json['phone'], json['username'], json['photo'], socket);
       // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
+      let users = [];
       registeredUsers.forEach(function(value) {
-        // Send to new client all registered users
-        user.mainSocket.send("NEW_USER: " + value.toJson());
-        //value.mainSocket.send("NEW_USER: " + user.toJson());
+        // Add to list all registered client
+        users.push(toJson(value));
       }, registeredUsers);
-      // send (also (for debug) himself)!
-     // user.mainSocket.send("NEW_USER: " + user.toJson());
+      let toSend = "USERS: " + JSON.stringify(users);
+      // send clients
+      user.mainSocket.send(toSend);
       // Add just connected user to map
       onlineUsers.set(json['phone'], user);
     }
@@ -128,16 +127,20 @@ webServerSocket.on("connection", (socket) => {
     if (message.startsWith("OPEN_CHAT_SOCKET")) {
       console.log("OPEN_CHAT_SOCKET");
       // Here i have another connection with client, beacuse in app I connect again to this server
-      // Add this new connection as parameter of User
+      // Add this new connection as parameter of ServiceUser
       let json = JSON.parse(message.split("OPEN_CHAT_SOCKET: ")[1]);
       // My id
-      let phone = json['phone'];
-      // Get client from map
-      let user = onlineUsers.get(phone);
+      let phone = JSON.parse(json[0]['phone']);
+      let peer = onlineUsers.get(json[1]['dest']);
       // Add new chat socket to him! He just entered in Chat screen in app
       user.chatSocket = socket;
       // I have to assign sessionUser! 
       sessionUser = user;
+      // Get client from map
+      if (peer == null) {
+        user.chatSocket.send("OFFLINE: " + '{"phone":' + '"'+ registeredUsers.get(json[1]['dest']) + '"}');
+      }
+      
       /// SERVER MUST SENDS TO ALL CHAT SOCKET THE PEER STATUS, SO IN CLIENT I CAN ALWAYS REBUILD THE APPBAR WITH STAUS!
       //-------------- WHEN HE SENDS ONLINE CONTACT DI LA SETTO LA VARIABILE ONLINE A TRUE, QUANDO ESCONO DALL APP, IL SERVER RIMANDA A TUTTI I CONNESSI IL NUOVO STATO=> ALLE CHAT SOCKET! PERCHE MI INTERESSA LI, QUINDI IL VALORE DA ONLINE A OFFLINE LO CAMBIO NELLA CHAT SOCKET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MA NON è VERO! ANCHE NELLE MAIN SOCKET! I.E NON SONO SULLA CHAT , UN UTENTE SI DISCONNETTE, AGGIORNO IL SUO VALORE NELLA MAIN SOCKET COSI QUANDO ENTRO IN CHAT HO IL VALORE AFFIORNto! QUINDI LO MANDO AD ENTRAMBE!
       // LOGOUT USERNAME => E NELL'APP PARSO ANCHE QUESTO CASE COME MESSAGGIO RICEVUTO, E AGGIORNO STATUS!

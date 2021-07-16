@@ -28,7 +28,7 @@ class ChatList extends StatefulWidget {
 class _ChatListState extends State<ChatList> with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.116.224:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
@@ -101,7 +101,6 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
               // Connection just done, client authentication
               if (firstClientMessage) {
                 logIn();
-                print("HERE");
                 // Shows a blank page while waiting for first server response
                 return buildChatList();
               }
@@ -110,6 +109,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
               // last part the body
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
+                print(snapshot.data);
                 var message = '${snapshot.data}'.split(": ")[0];
                 var json = '${snapshot.data}'.split(": ")[1];
                 // Switch operations
@@ -120,12 +120,16 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
                   // Add the new user without shows him because there aren't messages
                     return addContact(json);
 
-                // In this case, an user send me a message, so update chat list
-                // chatWith: {phone: "zzz", message"xxxx"}
+                  // Server sends all registered client: add in list without showing
+                  case "USERS":
+                    return addContacts(json);
+
+                  // In this case, an user send me a message, so update chat list
+                  // chatWith: {phone: "zzz", message"xxxx"}
                   case "MESSAGE_FROM":
                     return updateListViewWithMessage(json);
 
-                // One or more message, while I am offline
+                  // One or more message, while I am offline
                   case "MESSAGES_FROM":
                     return updateListViewWithMessages(json);
                   // In this case, an user leaved the app,
@@ -310,6 +314,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
 
   /// Authentication with server, I send my credentials
   void logIn() {
+    print("start");
     firstClientMessage = !firstClientMessage;
     // Read from disk
     SharedPreferences.getInstance().then((value) {
@@ -320,6 +325,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
       };
       mainChannel.sink.add('LOGIN: ' + jsonEncode(json));
     });
+    print("done");
   }
 
   /// Build a contact parsing from json
@@ -327,6 +333,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
     return Contact(
       jsonUser['phone'],
       jsonUser['username'],
+      jsonUser['photo'] == 'null' ? Image.asset('images/default_profile_pic.png') :
       Image.memory(base64Decode(jsonUser['photo'])),
     );
   }
@@ -342,7 +349,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
         });
   }
 
-  /// When a new user comes online, Server send to all other clients this user
+  /// Get a contact sent from the server
   addContact(String json) {
     var jsonUser = jsonDecode(json);
     Contact c = buildContact(jsonUser);
@@ -351,6 +358,15 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
     return buildListView(contactsListView);
   }
 
+  /// Get contacts sent from the server
+  addContacts(String jsonString) {
+    var json = jsonDecode(jsonString);
+    for (var msg in json) {
+      addContact(msg);
+    }
+    return buildListView(contactsListView);
+
+  }
   /// Another client sends me a message, update list view pushing him as head
   updateListViewWithMessage(String json) {
     var decode = jsonDecode(json);
@@ -380,4 +396,6 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
 
   @override
   bool get wantKeepAlive => true;
+
+
 }
