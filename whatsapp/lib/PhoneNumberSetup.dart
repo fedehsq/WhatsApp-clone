@@ -24,7 +24,7 @@ class _PhoneNumberState extends State<PhoneNumber> {
   final TextEditingController phone = TextEditingController();
   
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
 
   @override
   Widget build(BuildContext context) {

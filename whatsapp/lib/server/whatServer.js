@@ -14,7 +14,7 @@ class ServiceUser {
     this.photo = photo;
     this.mainSocket = mainSocket;
     this.chatSocket = null;
-    this.isOnline = true;
+    this.isOnline = false;
     // Enqueue messages when user is offline
     this.offlineMessages = [];
   }
@@ -22,7 +22,8 @@ class ServiceUser {
 
  // To send over socket
  function toJson(user) {
-  return '{"phone":' + '"'+ user.phone + '", "username":' + '"'+ user.username + '", "photo":' + '"'+ user.photo + '"}';
+  return '{"phone":' + '"'+ user.phone + '", "username":' + '"'+ user.username 
+  + '", "photo":' + '"'+ user.photo +    '", "isOnline":' + '"'+ user.isOnline + '"}';
 }
 
 // Sender phone number, text message, timestamp.
@@ -108,7 +109,10 @@ webServerSocket.on("connection", (socket) => {
       // If user is 
       let json = JSON.parse(message.split("LOGIN: ")[1]);
       // Last field is the other socket of a client, the chat socket, when he comes online, it is null
-      let user = new ServiceUser(json['phone'], json['username'], json['photo'], socket);
+      //let user = new ServiceUser(json['phone'], json['username'], json['photo'], socket);
+      let user = registeredUsers.get(json['phone']);
+      user.mainSocket = socket;
+      user.isOnline = true;
       // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
       let users = [];
       registeredUsers.forEach(function(value) {
@@ -130,9 +134,10 @@ webServerSocket.on("connection", (socket) => {
       // Add this new connection as parameter of ServiceUser
       let json = JSON.parse(message.split("OPEN_CHAT_SOCKET: ")[1]);
       // My id
-      let phone = JSON.parse(json[0]['phone']);
+      let phone = json[0]['phone'];
       let peer = onlineUsers.get(json[1]['dest']);
       // Add new chat socket to him! He just entered in Chat screen in app
+      let user = onlineUsers.get(phone);
       user.chatSocket = socket;
       // I have to assign sessionUser! 
       sessionUser = user;
@@ -160,10 +165,11 @@ webServerSocket.on("connection", (socket) => {
       let msg = json['message'];
       // Create message to send
       let packet = new Message(sessionUser.phone, msg, new Date());
-      // Search dest and send the message in the two socket of him
-      let peer = onlineUsers.get(dest);
+      // Search in registered dest and send the message in the two socket of him
+      let peer = registeredUsers.get(dest);
       // If peer is offline, enqueue the messages
       if (!peer.isOnline) {
+        console.log("qua");
         peer.offlineMessages.push(JSON.stringify(packet));
       } else {
         // Send message to the 2 socket of the destination! (ChatTab & Chat screen in app)

@@ -27,7 +27,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
 
   // connect to server when open a Chat Screen
   IOWebSocketChannel chatChannel = IOWebSocketChannel
-      .connect('ws://192.168.1.12:8080');
+      .connect('ws://192.168.1.4:8080');
 
   // text messages view
   final chatListView = [];
@@ -63,7 +63,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         print("resumed");
         // Next time in app opening, login again
         first = true;
-        chatChannel = IOWebSocketChannel.connect('ws://192.168.1.6:8080');
+        chatChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
         break;
     // Just a second before 'paused'
       case AppLifecycleState.inactive:

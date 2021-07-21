@@ -22,7 +22,7 @@ class _ProfileState extends State<Profile> {
   final picker = ImagePicker();
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
 
   final TextEditingController nameController = TextEditingController();
 

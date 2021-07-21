@@ -14,9 +14,8 @@ class Contact {
   bool isOnline;
   List<Message> messages;
 
-  Contact(this.phone, this.username, this.profileImage) {
+  Contact(this.phone, this.username, this.profileImage, this.isOnline) {
     toRead = 0;
-    isOnline = true;
     messages = [Message('', true)]; // message list
   }
 

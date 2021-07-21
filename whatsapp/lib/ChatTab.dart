@@ -28,7 +28,7 @@ class ChatList extends StatefulWidget {
 class _ChatListState extends State<ChatList> with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.12:8080');
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
@@ -122,6 +122,11 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
 
                   // Server sends all registered client: add in list without showing
                   case "USERS":
+                    // send a feedback to server for receiving eventually offline messages
+                    SharedPreferences.getInstance().then((value) {
+                      var json = {'phone': value.getString(PHONE_NUMBER)};
+                      mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
+                    });
                     return addContacts(json);
 
                   // In this case, an user send me a message, so update chat list
@@ -335,6 +340,7 @@ class _ChatListState extends State<ChatList> with WidgetsBindingObserver, Automa
       jsonUser['username'],
       jsonUser['photo'] == 'null' ? Image.asset('images/default_profile_pic.png') :
       Image.memory(base64Decode(jsonUser['photo'])),
+      jsonUser['isOnline'] == 'false' ? false : true,
     );
   }
 
