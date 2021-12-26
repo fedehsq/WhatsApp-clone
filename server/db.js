@@ -38,7 +38,7 @@ OfflineMessage.belongsTo(User, { foreignKey: 'id' });
 
 
 async function conn() {
-
+ //
   await User.sync({});
   await sequelize.sync({ force: true });
   console.log("All models were synchronized successfully.");
