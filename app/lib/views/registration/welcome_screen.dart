@@ -93,7 +93,7 @@ class WelcomeScreen extends StatelessWidget {
                         Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const PhoneNumber()),
+                                builder: (context) => const PhoneNumberSetup()),
                             (route) => false)
                       },
                       child: const Text(

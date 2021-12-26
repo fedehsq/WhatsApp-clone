@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/home/contacts_screen.dart';
 import '../chat.dart';
 import '../../models/contact.dart';
@@ -57,10 +58,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       // Re-open from bg
       case AppLifecycleState.resumed:
         // Next time in app opening, send online to all
-        SharedPreferences.getInstance().then((value) {
-          var json = {'phone': value.getString(phoneNumber)};
-          mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
-        });
+        var json = {'phone': SharedPreferencesManager.getPhoneNumber()};
+        mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
         break;
       // Just a second before 'paused'
       case AppLifecycleState.inactive:
@@ -68,10 +67,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       // App still opens in bg
       case AppLifecycleState.paused:
         // Send offline status to server
-        SharedPreferences.getInstance().then((value) {
-          var json = {'phone': value.getString(phoneNumber)};
-          mainChannel.sink.add('OFFLINE: ' + jsonEncode(json));
-        });
+        var json = {'phone': SharedPreferencesManager.getPhoneNumber()};
+        mainChannel.sink.add('OFFLINE: ' + jsonEncode(json));
         break;
       // On hard close app (remove from bg)
       case AppLifecycleState.detached:

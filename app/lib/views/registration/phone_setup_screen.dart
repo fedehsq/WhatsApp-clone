@@ -4,19 +4,19 @@ import 'dart:developer';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/main.dart';
+import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'profile_setup_screen.dart';
 
-class PhoneNumber extends StatefulWidget {
-  const PhoneNumber({Key? key}) : super(key: key);
+class PhoneNumberSetup extends StatefulWidget {
+  const PhoneNumberSetup({Key? key}) : super(key: key);
 
   @override
-  _PhoneNumberState createState() => _PhoneNumberState();
+  _PhoneNumberSetupState createState() => _PhoneNumberSetupState();
 }
 
-class _PhoneNumberState extends State<PhoneNumber> {
+class _PhoneNumberSetupState extends State<PhoneNumberSetup> {
   var countries = [
     "Italia",
     "USA",
@@ -33,7 +33,7 @@ class _PhoneNumberState extends State<PhoneNumber> {
   final TextEditingController phone = TextEditingController();
 
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
+  final mainChannel = IOWebSocketChannel.connect(server);
 
   @override
   Widget build(BuildContext context) {
@@ -66,15 +66,13 @@ class _PhoneNumberState extends State<PhoneNumber> {
               if (snapshot.hasData) {
                 if (snapshot.data == "OK") {
                   mainChannel.sink.close();
-                  SharedPreferences.getInstance().then((value) {
-                    value.setString(phoneNumber, phone.text);
+                  SharedPreferencesManager.putData(phoneNumber, phone.text);
                     // Start next route
                     Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const Profile()),
+                            builder: (context) => const ProfileSetup()),
                         (route) => false);
-                  });
                   // ahah
                   return const Text('');
                 } else {
@@ -97,32 +95,23 @@ class _PhoneNumberState extends State<PhoneNumber> {
     return Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 16.0),
-            child: Center(
-                child: Text(
-              'WhatsApp invierà un SMS per verificare il tuo numero di ',
-              style: TextStyle(color: textColor),
-            )),
-          ),
-          Center(
-            child: RichText(
-                text: TextSpan(
-                    text: 'telefono. ',
-                    style: const TextStyle(color: textColor),
-                    children: [
-                  TextSpan(
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () => ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(
-                              content:
-                                  Text('Qualcuno ha mai davvero cliccato qua?'),
-                              duration: Duration(seconds: 1),
-                            )),
-                      text: ' Qual è il mio numero?',
-                      style: const TextStyle(color: urlColor)),
-                ])),
-          ),
+          RichText(
+            textAlign: TextAlign.center,
+              text: TextSpan(
+                  text: 'WhatsApp invierà un SMS per verificare il tuo numero di telefono.',
+                  style: const TextStyle(color: textColor),
+                  children: [
+                TextSpan(
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                            content:
+                                Text('Qualcuno ha mai davvero cliccato qua?'),
+                            duration: Duration(seconds: 1),
+                          )),
+                    text: ' Qual è il mio numero?',
+                    style: const TextStyle(color: urlColor)),
+              ])),
           SizedBox(
             width: 250,
             child: Column(

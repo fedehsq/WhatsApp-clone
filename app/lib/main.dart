@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whatsapp_clone/views/registration/welcome_screen.dart';
 
+import 'managers/preference_manager.dart';
 import 'views/home/homepage_screen.dart';
 
-void main() {
-  runApp(const WhatsApp());
-}
+const server = 'ws://192.168.1.11:8080';
 
 const Color backgroundColor = Color.fromARGB(255, 16, 29, 36);
 const Color chatColor = Color.fromARGB(255, 5, 71, 64);
@@ -30,14 +29,22 @@ const ageUrl = 'https://faq.whatsapp.com/general/security-and-privacy/'
     'minimum-age-to-use-whatsapp/?lang=it';
 const fbUrl = 'https://faq.whatsapp.com/general/security-and-privacy/'
     'how-we-work-with-the-facebook-companies?eea=1&lang=it';
+
 const mindWidth = 360;
-const phoneNumber = "com.example.whatsapp_clone.phoneNumber";
-const username = "com.example.whatsapp_clone.username";
-const photo = "com.example.whatsapp_clone.photo";
 const fontSize = 20.0;
 const defaultIntroFontSize = 14.0;
 const minInfoFontSize = 13.0;
 late double screenWidth;
+
+const phoneNumber = "com.example.whatsapp_clone.phoneNumber";
+const username = "com.example.whatsapp_clone.username";
+const photo = "com.example.whatsapp_clone.photo";
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SharedPreferencesManager.initalize();
+  runApp(const WhatsApp());
+}
 
 class WhatsApp extends StatelessWidget {
   const WhatsApp({Key? key}) : super(key: key);
@@ -45,39 +52,15 @@ class WhatsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'WhatsApp',
-      theme: ThemeData(
-        scaffoldBackgroundColor: backgroundColor,
-        primarySwatch: Colors.teal,
-        primaryColor: secondaryColor,
-        hintColor: Colors.grey,
-      ),
-      home: FutureBuilder<SharedPreferences>(
-          future: SharedPreferences.getInstance(),
-          builder: (context, AsyncSnapshot<SharedPreferences> snapshot) {
-            if (snapshot.hasData) {
-              return snapshot.data?.get(username) != null
-                  ? const HomepageScreen()
-                  : const WelcomeScreen();
-            } else {
-              return const Scaffold(
-                body: Center(
-                  child: Center(
-                      child: Image(
-                    image: AssetImage('images/white_logo.png'),
-                    width: 64,
-                  )),
-                ),
-                bottomNavigationBar: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Image(
-                    image: AssetImage('images/from_fb.png'),
-                    height: 35,
-                  ),
-                ),
-              );
-            }
-          }),
-    );
+        title: 'WhatsApp',
+        theme: ThemeData(
+          scaffoldBackgroundColor: backgroundColor,
+          primarySwatch: Colors.teal,
+          primaryColor: secondaryColor,
+          hintColor: Colors.grey,
+        ),
+        home: SharedPreferencesManager.getUsername() != null
+            ? const HomepageScreen()
+            : const WelcomeScreen());
   }
 }
