@@ -11,9 +11,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> with TickerProviderStateMixin {
 
-
   var screenWidth;
-
 
   @override
   void didChangeDependencies() {

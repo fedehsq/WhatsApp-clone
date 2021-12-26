@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web_socket_channel/io.dart';
 import 'ProfileSetup.dart';
 import 'main.dart';
 
@@ -18,6 +22,9 @@ class _PhoneNumberState extends State<PhoneNumber> {
   ];
   var chosen = "Italia";
   final TextEditingController phone = TextEditingController();
+  
+  // Connect to server
+  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +35,8 @@ class _PhoneNumberState extends State<PhoneNumber> {
           centerTitle: true,
           title: Text('Inserisci il tuo numero di telefono:',
             style: TextStyle(
-              color: TEXT_COLOR,),
+                color: TEXT_COLOR,
+                fontSize: screenWidth <= MIN_WIDTH ? 16 : FONT_SIZE),
           ),
           actions: [
             Padding(
@@ -37,227 +45,267 @@ class _PhoneNumberState extends State<PhoneNumber> {
             )
           ],
         ),
-        body: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Server will send "OK" in the case of a fresh phone number, otherwise "KO"
+        body: StreamBuilder(
+            stream: mainChannel.stream,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                if (snapshot.data == "OK") {
+                  mainChannel.sink.close();
+                  SharedPreferences.getInstance().then((value) {
+                    value.setString(PHONE_NUMBER, phone.text);
+                    // Start next route
+                    Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => Profile()),
+                            (route) => false);
+                  });
+                  // ahah
+                  return Text('');
+                } else {
+                  // After build the column, show error message
+                  WidgetsBinding.instance.addPostFrameCallback((_) =>
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(
+                          content: const Text(
+                            'Numero già registrato.'),
+                        duration: Duration(seconds: 1),
+                      )));
+                  return buildColumn();
+                }
+                // Phone number already registered
+              } else {
+                return buildColumn();
+              }
+            })
+    );
+  }
+
+  buildColumn() {
+    return Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
             children: [
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Center(child: Text(
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Center(
+                    child: Text(
                       'WhatsApp invierà un SMS per verificare il tuo numero di ',
                       style: TextStyle(color: TEXT_COLOR),
                     )),
-                  ),
-                  Center(
-                    child: RichText(
-                        text: TextSpan(
-                            text: 'telefono ',
-                            style: TextStyle(color: TEXT_COLOR),
-                            children: [
-                              TextSpan(
-                                  recognizer: TapGestureRecognizer()
-                                    ..onTap = () =>
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                            SnackBar(
-                                              content: const Text(
-                                                  'Qualcuno ha mai davvero cliccato qua?'),
-                                              duration: Duration(seconds: 1),
-
-                                            )),
-                                  text: ' Qual è il mio numero?',
-                                  style: TextStyle(color: URL_COLOR)
-                              ),
-                            ]
-                        )
-                    ),
-                  ),
-                  SizedBox(
-                    width: 250,
-                    child: Column(
-                      children: [
-                        FormField<String>(
-                          builder: (FormFieldState<String> state) {
-                            return InputDecorator(
-                              decoration: InputDecoration(
-                                enabledBorder: UnderlineInputBorder(
-                                    borderSide: BorderSide(
-                                        color: SECONDARY_COLOR)
-                                ),
-                              ),
-                              child: Center(
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    isExpanded: true,
-                                    iconEnabledColor: SECONDARY_COLOR,
-                                    dropdownColor: PRIMARY_COLOR,
-                                    value: chosen,
-                                    onChanged: (String newValue) {
-                                      setState(() {
-                                        chosen = newValue;
-                                      });
-                                    },
-                                    items: countries.map((String value) {
-                                      return DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Center(
-                                          child: Text(
-                                            value,
-                                            style: TextStyle(
-                                                color: TEXT_COLOR),),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            SizedBox(
-                              width: 50,
-                              child: TextFormField(
-                                  initialValue: ' 39',
-                                  keyboardType: TextInputType.phone,
-                                  style: TextStyle(color: TEXT_COLOR),
-                                  decoration: InputDecoration(
-                                    prefixText: '+',
-                                    enabledBorder: UnderlineInputBorder(
-                                      borderSide: BorderSide(
-                                          color: SECONDARY_COLOR),
-                                    ),
-                                  )
-
-                              ),
-                            ),
-                            SizedBox(
-                              width: 150,
-                              child: TextField(
-                                  controller: phone,
-                                  keyboardType: TextInputType.phone,
-                                  style: TextStyle(color: TEXT_COLOR),
-                                  decoration: InputDecoration(
-                                    hintText: 'numero di telefono',
-                                    enabledBorder: UnderlineInputBorder(
-                                      borderSide: BorderSide(
-                                          color: SECONDARY_COLOR),
-                                    ),
-                                  )
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Possibili costi per SMS applicati dal tuo gestore',
-                      style: TextStyle(color: Colors.grey),),
-                  )
-                ],
               ),
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ElevatedButton(onPressed: () =>
-                    {
-                      /// CHECK PHONE NUMBER
-                      if (phone.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                duration: Duration(seconds: 1),
-                                content: const Text(
-                                    'Inserisci il tuo numero di telefono'
-                                )
-                            ))
-                      } else
-                        {
-                          /// Save phone number to sharedPreferences
-                          SharedPreferences.getInstance().then((value) {
-                            /// Start next route
-                            Navigator.pushAndRemoveUntil(context,
-                                MaterialPageRoute(
-                                    builder: (context) => Profile())
-                                , (route) => false);
-                          }
-                          )
-                        }
-                    },
-                      child: Text('AVANTI',
-                        style: TextStyle(color: BACKGROUND_COLOR),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: RichText(
-                      text: TextSpan(
-                        text: 'Devi avere ',
-                        style: TextStyle(
-                            color: Colors.grey, fontSize: 12),
+              Center(
+                child: RichText(
+                    text: TextSpan(
+                        text: 'telefono. ',
+                        style: TextStyle(color: TEXT_COLOR),
                         children: [
                           TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () =>
-                                    Navigator.push(context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              WebviewScaffold(
-                                                  appBar: AppBar(
-                                                    toolbarHeight: 0,),
-                                                  url: AGE_URL)
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(
+                                      content: const Text(
+                                          'Qualcuno ha mai davvero cliccato qua?'),
+                                      duration: Duration(seconds: 1),
+                                    )),
+                              text: ' Qual è il mio numero?',
+                              style: TextStyle(color: URL_COLOR)),
+                        ])),
+              ),
+              SizedBox(
+                width: 250,
+                child: Column(
+                  children: [
+                    FormField<String>(
+                      builder: (FormFieldState<String> state) {
+                        return InputDecorator(
+                          decoration: InputDecoration(
+                            enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: SECONDARY_COLOR)),
+                          ),
+                          child: Center(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                iconEnabledColor: SECONDARY_COLOR,
+                                dropdownColor: PRIMARY_COLOR,
+                                value: chosen,
+                                onChanged: (String newValue) {
+                                  setState(() {
+                                    chosen = newValue;
+                                  });
+                                },
+                                items:
+                                countries.map((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Center(
+                                      child: Text(
+                                        value,
+                                        style: TextStyle(
+                                            color: TEXT_COLOR),
                                       ),
                                     ),
-                              text: 'almeno 16 anni ',
-                              style: TextStyle(
-                                  color: URL_COLOR, fontSize: 12)
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ),
-                          TextSpan(
-                            text: 'per registrarti. Scopri come WhatsApp lavora ',
-                            style: TextStyle(
-                                color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
+                    Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: TextFormField(
+                              initialValue: ' 39',
+                              keyboardType: TextInputType.phone,
+                              style: TextStyle(color: TEXT_COLOR),
+                              decoration: InputDecoration(
+                                prefixText: '+',
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                      color: SECONDARY_COLOR),
+                                ),
+                              )),
+                        ),
+                        SizedBox(
+                          width: 150,
+                          child: TextField(
+                              controller: phone,
+                              keyboardType: TextInputType.phone,
+                              style: TextStyle(color: TEXT_COLOR),
+                              decoration: InputDecoration(
+                                hintText: 'numero di telefono',
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                      color: SECONDARY_COLOR),
+                                ),
+                              )),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Possibili costi per SMS applicati dal tuo gestore',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            ],
+          ),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: ElevatedButton(
+                  onPressed: () => {
+                    /// CHECK PHONE NUMBER
+                    if (phone.text.isEmpty)
+                      {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                duration: Duration(seconds: 1),
+                                content: const Text(
+                                    'Inserisci il tuo numero di telefono')))
+                      }
+                    else
+                      {
+                        // Send registration request to the server
+                        mainChannel.sink.add('REQUEST: ' +
+                            jsonEncode({'phone': phone.text}))
+                      }
+                  },
+                  child: Text(
+                    'AVANTI',
+                    style: TextStyle(color: BACKGROUND_COLOR),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: Center(
-                      child: RichText(text: TextSpan(text: 'con le ',
+                ),
+              ),
+              Center(
+                child: RichText(
+                  text: TextSpan(
+                    text: 'Devi avere ',
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize:
+                        screenWidth <= MIN_WIDTH ? 11 : 12),
+                    children: [
+                      TextSpan(
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      WebviewScaffold(
+                                          appBar: AppBar(
+                                            toolbarHeight: 0,
+                                          ),
+                                          url: AGE_URL)),
+                            ),
+                          text: 'almeno 16 anni ',
                           style: TextStyle(
-                              color: Colors.grey, fontSize: 12),
+                              color: URL_COLOR,
+                              fontSize: screenWidth <= MIN_WIDTH
+                                  ? 11
+                                  : 12)),
+                      TextSpan(
+                        text:
+                        'per registrarti. Scopri come WhatsApp lavora ',
+                        style: TextStyle(
+                            color: Colors.grey,
+                            fontSize:
+                            screenWidth <= MIN_WIDTH ? 11 : 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Center(
+                  child: RichText(
+                      text: TextSpan(
+                          text: 'con le ',
+                          style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: screenWidth <= MIN_WIDTH
+                                  ? 11
+                                  : 12),
                           children: [
                             TextSpan(
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () =>
-                                      Navigator.push(context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                WebviewScaffold(
-                                                    appBar: AppBar(
-                                                      toolbarHeight: 0,),
-                                                    url: FB_URL)
-                                        ),
-                                      ),
+                                  ..onTap = () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            WebviewScaffold(
+                                                appBar: AppBar(
+                                                  toolbarHeight: 0,
+                                                ),
+                                                url: FB_URL)),
+                                  ),
                                 text: 'aziende di Facebook',
                                 style: TextStyle(
-                                    color: URL_COLOR, fontSize: 12)
-                            )
-                          ]
-                      )),
-                    ),
-                  )
-                ],
-              ),
-            ]
-        )
-    );
+                                    color: URL_COLOR,
+                                    fontSize: screenWidth <= MIN_WIDTH
+                                        ? 11
+                                        : 12))
+                          ])),
+                ),
+              )
+            ],
+          ),
+        ]);
   }
+
 }

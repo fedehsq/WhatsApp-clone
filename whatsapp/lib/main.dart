@@ -36,6 +36,8 @@ const PHONE_NUMBER = "com.example.whatsapp_clone.phoneNumber";
 const USERNAME = "com.example.whatsapp_clone.username";
 const PHOTO = "com.example.whatsapp_clone.photo";
 const FONT_SIZE = 20.0;
+const DEFAULT_INFO_FONT_SIZE = 14.0;
+const MIN_INFO_FONT_SIZE = 13.0;
 var screenWidth;
 
 class MyApp extends StatelessWidget {
@@ -59,7 +61,8 @@ class MyApp extends StatelessWidget {
                 return Scaffold(
                   body: Center(
                     child: Center(child: Image(
-                      image: AssetImage('images/white_logo.png'), width: 64,)),
+                      image: AssetImage('images/white_logo.png'), width: 64,)
+                    ),
                   ),
                   bottomNavigationBar: Padding(
                     padding: const EdgeInsets.all(32.0),

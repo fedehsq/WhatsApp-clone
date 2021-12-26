@@ -38,7 +38,10 @@ class Welcome extends StatelessWidget {
                   child: RichText(
                       text: TextSpan(
                           text: 'Leggi l\'',
-                          style: TextStyle(color: TEXT_COLOR),
+                          style: TextStyle(color: TEXT_COLOR,
+                              fontSize: screenWidth <= MIN_WIDTH
+                                  ? MIN_INFO_FONT_SIZE
+                                  : DEFAULT_INFO_FONT_SIZE),
                           children: [
                             TextSpan(
                                 recognizer: TapGestureRecognizer()
@@ -57,7 +60,11 @@ class Welcome extends StatelessWidget {
                             ),
                             TextSpan(
                                 text: '. Tocca "Accetta e continua"',
-                                style: TextStyle(color: TEXT_COLOR)
+                                style: TextStyle(
+                                    color: TEXT_COLOR, fontSize: screenWidth <=
+                                    MIN_WIDTH
+                                    ? MIN_INFO_FONT_SIZE
+                                    : DEFAULT_INFO_FONT_SIZE)
                             ),
                           ]
                       )
@@ -69,7 +76,10 @@ class Welcome extends StatelessWidget {
                     child: RichText(
                         text: TextSpan(
                             text: ' per accettare i ',
-                            style: TextStyle(color: TEXT_COLOR),
+                            style: TextStyle(color: TEXT_COLOR,
+                                fontSize: screenWidth <= MIN_WIDTH
+                                    ? MIN_INFO_FONT_SIZE
+                                    : DEFAULT_INFO_FONT_SIZE),
                             children: [
                               TextSpan(
                                   recognizer: TapGestureRecognizer()

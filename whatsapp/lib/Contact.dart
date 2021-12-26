@@ -1,5 +1,7 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
+
+
+
+import 'package:flutter/cupertino.dart';
 
 import 'Message.dart';
 
@@ -7,13 +9,30 @@ import 'Message.dart';
 class Contact {
   final String phone;
   final String username;
+  final Image profileImage;
+  int toRead;
+  bool isOnline;
+  List<Message> messages;
 
-  // todo: CHANGE WHEN IMPLEMENT DB
-  final AssetImage profileImage;
+  Contact(this.phone, this.username, this.profileImage, this.isOnline) {
+    toRead = 0;
+    messages = [Message('', true)]; // message list
+  }
 
-  // ha associaTO UNa lista di messaggi che sarà a sua volta una classe, che contiene il timestamp
-  final List<Message> messages;
+  @override
+  String toString() {
+    return 'Contact{phone: $phone, username: $username, profileImage: $profileImage}';
+  }
 
-  Contact(this.phone, this.username, this.profileImage, this.messages);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Contact &&
+          runtimeType == other.runtimeType &&
+          phone == other.phone &&
+          username == other.username;
+
+  @override
+  int get hashCode => phone.hashCode ^ username.hashCode;
 }
 

@@ -1,0 +1,5 @@
+1: salvare tutti gli utenti registrati su file lato server OK
+2: ad ogni accensione del server leggerli ed inviarli a tutti quelli che si connettono OK
+3: possibilità di inviare messaggi anche se il peer è offline
+4: CONTROLLARE DISCORSO ONLINE / OFFLINE LATO CLIENT IN CHAT.dart E IN SERVER NEL PATTERN 'OPHEN:CHAT_SOCKET' OK
+5: FARE STO CAZZO DI DATABASE
