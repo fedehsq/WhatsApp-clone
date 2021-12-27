@@ -6,18 +6,18 @@ import { OnlineUser } from './helper/user.js';
 import { Message } from './helper/message.js';
 import { MessageDao } from './dao/messageDao.js';
 
-// Possible operations
-const REQUIRE_REGISTRATION = 'REQUEST'
-const REGISTRATION = 'REGISTER'
+// Possible operations / response code
+const REGISTRATION_REQUEST = 0, RESULT_OK = 0
+const REGISTRATION = 0, RESULT_KO = 1
 // Login when 
-const LOGIN = 'LOGIN'
+const LOGIN = 2
 // Opens the chat screen in app
-const CHAT_SOCKET = 'OPEN_CHAT_SOCKET'
+const CHAT_SOCKET = 3
 // Request to send a message
-const SEND_TO = 'SEND_TO'
+const SEND = 4
 // Client status
-const ONLINE = 'ONLINE'
-const OFFLINE = 'OFFLINE'
+const ONLINE = 5
+const OFFLINE = 6
 
 // Initialize the database
 await DatabaseManager.initialize()
@@ -43,43 +43,50 @@ webServerSocket.on("connection", (socket) => {
   // User in session, this var is useful when I connect with 2nd connection 
   var sessionUser;
   socket.on("message", (data) => {
-    var message = data.toLocaleString()
-    // Client send the register request message to the server
-    if (message.startsWith(REQUIRE_REGISTRATION)) {
-
+    var json = JSON.parse(data.toLocaleString())
+    var request = json['operation']
+    var body = json['body']
+    
+    switch (request) {
       // Request of registration, client sends only phone number
-      registerRequest(message, socket);
-    
-    } else if (message.startsWith(REGISTRATION)) {
-    
-      // Client can register himself with the previous phone number
-      register(message, socket);
-    
-    } else if (message.startsWith(LOGIN)) {
-    
-      // Login after registration
-      login(message, socket);
-    
-    } else if (message.startsWith(CHAT_SOCKET)) {
-    
-      // In app an user opens Chat screen, now session user has 2 socket
-      sessionUser = createChatConnection(message, socket, sessionUser);
+      case REGISTRATION_REQUEST:
+        registerRequest(body, socket);
+        break;
 
-    } else if (message.startsWith(SEND_TO)) {
+      // Client can register himself with the previous phone number
+      case REGISTRATION:
+        register(body, socket);
+        break;
+
+      // Login after registration
+      case LOGIN:
+        login(body, socket);
+        break;
+
+      // In app an user opens Chat screen, now session user has 2 socket
+      case CHAT_SOCKET:
+        sessionUser = createChatConnection(body, socket, sessionUser);
+        break;
 
       // Client wants to send a message
-      sendMessage(message, sessionUser);
-      
-    } else if (message.startsWith(ONLINE)) {
-      
-      // Client opens the app
-      setOnline(message);
+      case request == SEND:
+        sendMessage(body, sessionUser);
+        break;
 
-    } else if (message.startsWith(OFFLINE)) {
+      // Client can register himself with the previous phone number
+      case REGISTRATION:
+        register(body, socket);
+        break;
+
+      // Client opens the app
+      case ONLINE:
+        setOnline(body);
+        break;
 
       // Client closes the app
-      setOffline(message);
-
+      case OFFLINE:
+        setOffline(body);
+        break;
     }
   })
 })
@@ -91,17 +98,29 @@ function setOffline(message) {
   // My id
   let phone = json['phone'];
   onlineUsers.get(phone).isOnline = false;
+
   // Remove from map
   // onlineUsers.delete(phone);
   // Send to all socket that user is nomore online
-  onlineUsers.forEach(function (value) {
+
+  for (const u of onlineUsers) {
+    if (u != user) {
+      // Send to new client all onlineUsers
+      u.mainSocket.send("OFFLINE: " + '{"phone":' + '"' + phone + '"}');
+      if (u.chatSocket != null) {
+        u.chatSocket.send("OFFLINE: " + '{"phone":' + '"' + phone + '"}');
+      }
+    }  
+  }
+
+  /*onlineUsers.forEach(function (value) {
     // Send to new client all onlineUsers
     value.mainSocket.send("OFFLINE: " + '{"phone":' + '"' + phone + '"}');
     if (value.chatSocket != null) {
       value.chatSocket.send("OFFLINE: " + '{"phone":' + '"' + phone + '"}');
     }
   }, onlineUsers);
-    /*
+    
   onlineUsers.forEach(function(key, value) {
     // Main socket
     value.mainSocket.send("LOGOUT: " + JSON.stringify(phone));
@@ -113,13 +132,12 @@ function setOffline(message) {
   */
 }
 
-function setOnline(message) {
+function setOnline(body) {
   console.log("ONLINE");
   // "ONLINE:{"phone":"xxxx"}
   // On reopen abb from bg
-  let json = JSON.parse(message.split("ONLINE: ")[1]);
   // My id
-  let phone = json['phone'];
+  let phone = body['phone'];
   let user = onlineUsers.get(phone);
   user.isOnline = true;
 
@@ -129,8 +147,20 @@ function setOnline(message) {
     user.chatSocket.send("MESSAGES_FROM: " + JSON.stringify(user.offlineMessages));
   }
   user.offlineMessages = [];
+  MessageDao.deleteAllMessages(user.uid)
 
   // Send to all socket that user is online again
+  for (const u of onlineUsers) {
+    if (u != user) {
+      // Send to new client all onlineUsers
+      u.mainSocket.send("ONLINE: " + '{"phone":' + '"' + phone + '"}');
+      if (u.chatSocket != null) {
+        u.chatSocket.send("ONLINE: " + '{"phone":' + '"' + phone + '"}');
+      }
+    }  
+  }
+
+  /* Send to all socket that user is online again
   onlineUsers.forEach(function (value) {
     if (value != user) {
       // Send to new client all onlineUsers
@@ -140,39 +170,37 @@ function setOnline(message) {
       }
     }
   }, onlineUsers);
+  */
 }
 
 // "SEND_TO:{"phone":"3347552773","message":"Hello, world!"}"
-function sendMessage(message, sessionUser) {
+function sendMessage(body, sessionUser) {
   console.log("SEND_TO");
-  let json = JSON.parse(message.split("SEND_TO: ")[1]);
-  let dest = json['dest'];
-  let msg = json['message'];
   // Create message to send
-  let packet = new Message(sessionUser.phone, msg, new Date());
+  let message = new Message(sessionUser.phone, body['message'], new Date());
   // Search in registered dest and send the message in the two socket of him
-  let peer = registeredUsers.get(dest);
+  let peer = registeredUsers.get(body['dest']);
   // If peer is offline, enqueue the messages
   if (!peer.isOnline) {
-    peer.offlineMessages.push(JSON.stringify(packet));
-    MessageDao.createOfflineMessage(peer.id, packet.message, packet.timestamp)
+    peer.offlineMessages.push(JSON.stringify(message));
+    MessageDao.createMessage(peer.id, message.body, message.timestamp)
   } else {
     // Send message to the 2 socket of the destination! (ChatTab & Chat screen in app)
-    peer.mainSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
+    peer.mainSocket.send("MESSAGE_FROM: " + JSON.stringify(message));
     // Check that if he is in a Chat screen
     if (peer.chatSocket != null) {
-      peer.chatSocket.send("MESSAGE_FROM: " + JSON.stringify(packet));
+      peer.chatSocket.send("MESSAGE_FROM: " + JSON.stringify(message));
     }
   }
 }
 
 // In app an user opens Chat screen
 // "OPEN_CHAT_SOCKET:{"phone":"3347552773"}"
-function createChatConnection(message, socket, sessionUser) {
+function createChatConnection(body, socket, sessionUser) {
   console.log("OPEN_CHAT_SOCKET");
   // Here i have another connection with client, beacuse in app I connect again to this server
   // Add this new connection as parameter of User
-  let json = JSON.parse(message.split("OPEN_CHAT_SOCKET: ")[1]);
+  let json = body
   // My id
   let phone = json[0]['phone'];
   let peer = onlineUsers.get(json[1]['dest']);
@@ -199,56 +227,55 @@ function createChatConnection(message, socket, sessionUser) {
 
 // First message sended to server from client is his credentials
 // "LOGIN:{"phone":"3347552773","username":"fede","photo":"encoded64photo"}"
-function login(message, socket) {
+function login(body, socket) {
   console.log("LOGIN");
-  // If user is 
-  let json = JSON.parse(message.split("LOGIN: ")[1]);
   // Last field is the other socket of a client, the chat socket, when he comes online, it is null
-  //let user = new User(json['phone'], json['username'], json['photo'], socket);
-  let user = registeredUsers.get(json['phone']);
+  let user = registeredUsers.get(body['phone']);
   user.mainSocket = socket;
   user.isOnline = true;
   // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
   let users = [];
+  for (const user of registeredUsers) {
+    users.push(user.toJson());
+  }
+  /*
   registeredUsers.forEach(function (user) {
     // Add to list all registered client
     users.push(user.toJson());
   }, registeredUsers);
+  */
   let toSend = "USERS: " + JSON.stringify(users);
   // send clients
   user.mainSocket.send(toSend);
   // Add just connected user to map
-  onlineUsers.set(json['phone'], user);
+  onlineUsers.set(body['phone'], user);
 }
 
 // Client registration
-function register(message, socket) {
+function register(body, socket) {
   console.log("REGISTER");
-  // If user is 
-  let json = JSON.parse(message.split("REGISTER: ")[1]);
   // Save user to map
-  let user = new OnlineUser(json['phone'], json['username'], json['photo'], null);
+  let user = new OnlineUser(body['phone'], body['username'], body['photo']);
   // Add just registered user to map
-  registeredUsers.set(json['phone'], user);
+  registeredUsers.set(body['phone'], user);
   // Save to db
-  UserDao.createUser(json['phone'], json['username'], json['photo']);
+  UserDao.createUser(body['phone'], body['username'], body['photo']);
   socket.send("OK");
   socket.close();
 }
 
-function registerRequest(message, socket) {
+function registerRequest(body, socket) {
   console.log("REQUEST");
-  // If user is 
-  let json = JSON.parse(message.split("REQUEST: ")[1]);
-  // Try to get the user
-  let phone = json['phone'];
-  // Get client from map
-  let user = registeredUsers.get(phone);
+  // Check if the phone number is already registered
+  let user = registeredUsers.get(body['phone']);
   if (user == null) {
-    socket.send("OK");
+    socket.send(JSON.stringify(
+      { 'status_code': RESULT_OK }
+    ));
     socket.close();
   } else {
-    socket.send("KO");
+    socket.send(
+      JSON.stringify({ 'status_code': RESULT_KO }));
   }
 }
 /*

@@ -6,8 +6,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/home/homepage_screen.dart';
 import 'package:whatsapp_clone/main.dart';
@@ -69,14 +69,14 @@ class _ProfileSetupState extends State<ProfileSetup> {
                         'Inserisci il tuo nome e (facoltativo) un\'immagine per il tuo',
                         style: TextStyle(
                             color: Colors.grey,
-                            fontSize: screenWidth <= mindWidth ? 12 : 14),
+                            fontSize: screenWidth <= mindWidth ? 11 : 14),
                       ),
                       Center(
                         child: Text(
                           'profilo',
                           style: TextStyle(
                               color: Colors.grey,
-                              fontSize: screenWidth <= mindWidth ? 12 : 14),
+                              fontSize: screenWidth <= mindWidth ? 11 : 14),
                         ),
                       ),
                       Padding(

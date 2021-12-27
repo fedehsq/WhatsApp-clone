@@ -5,8 +5,6 @@ import 'package:whatsapp_clone/views/registration/welcome_screen.dart';
 import 'managers/preference_manager.dart';
 import 'views/home/homepage_screen.dart';
 
-const server = 'ws://192.168.1.11:8080';
-
 const Color backgroundColor = Color.fromARGB(255, 16, 29, 36);
 const Color chatColor = Color.fromARGB(255, 5, 71, 64);
 const Color primaryColor = Color.fromARGB(255, 35, 45, 54);

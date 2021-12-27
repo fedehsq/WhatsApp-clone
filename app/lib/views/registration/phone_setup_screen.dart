@@ -3,8 +3,10 @@ import 'dart:developer';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/main.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'profile_setup_screen.dart';
@@ -62,17 +64,19 @@ class _PhoneNumberSetupState extends State<PhoneNumberSetup> {
         body: StreamBuilder(
             stream: mainChannel.stream,
             builder: (context, snapshot) {
-              log(snapshot.toString());
               if (snapshot.hasData) {
-                if (snapshot.data == "OK") {
+                var response = jsonDecode(snapshot.data.toString());
+                if (response['status_code'] == resultOk) {
                   mainChannel.sink.close();
                   SharedPreferencesManager.putData(phoneNumber, phone.text);
-                    // Start next route
+                  // Start next route
+                  SchedulerBinding.instance!.addPostFrameCallback((_) {
                     Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
                             builder: (context) => const ProfileSetup()),
                         (route) => false);
+                  });
                   // ahah
                   return const Text('');
                 } else {
@@ -96,22 +100,23 @@ class _PhoneNumberSetupState extends State<PhoneNumberSetup> {
       Column(
         children: [
           RichText(
-            textAlign: TextAlign.center,
+              textAlign: TextAlign.center,
               text: TextSpan(
-                  text: 'WhatsApp invierà un SMS per verificare il tuo numero di telefono.',
+                  text:
+                      'WhatsApp invierà un SMS per verificare il tuo numero di telefono.',
                   style: const TextStyle(color: textColor),
                   children: [
-                TextSpan(
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () => ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(
-                            content:
-                                Text('Qualcuno ha mai davvero cliccato qua?'),
-                            duration: Duration(seconds: 1),
-                          )),
-                    text: ' Qual è il mio numero?',
-                    style: const TextStyle(color: urlColor)),
-              ])),
+                    TextSpan(
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => ScaffoldMessenger.of(context)
+                                  .showSnackBar(const SnackBar(
+                                content: Text(
+                                    'Qualcuno ha mai davvero cliccato qua?'),
+                                duration: Duration(seconds: 1),
+                              )),
+                        text: ' Qual è il mio numero?',
+                        style: const TextStyle(color: urlColor)),
+                  ])),
           SizedBox(
             width: 250,
             child: Column(
@@ -208,9 +213,10 @@ class _PhoneNumberSetupState extends State<PhoneNumberSetup> {
                       content: Text('Inserisci il tuo numero di telefono')));
                 } else {
                   // Send registration request to the server
-                  mainChannel.sink
-                      .add('REQUEST: ' + jsonEncode({'phone': phone.text}));
-                  log('message');
+                  mainChannel.sink.add(jsonEncode({
+                    'operation': registrationRequest,
+                    'body': {'phone': phone.text}
+                  }));
                 }
               },
               child: const Text(
