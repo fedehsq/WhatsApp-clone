@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "sequelize": "^7.0.0-alpha.2",
+    "sqlite3": "^4.2.0",
+    "ws": "^8.4.0"
+  },
+  "type": "module"
+}
