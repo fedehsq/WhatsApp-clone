@@ -9,7 +9,8 @@ class HomepageScreen extends StatefulWidget {
   _HomepageScreenState createState() => _HomepageScreenState();
 }
 
-class _HomepageScreenState extends State<HomepageScreen> with TickerProviderStateMixin {
+class _HomepageScreenState extends State<HomepageScreen>
+    with TickerProviderStateMixin {
   late double screenWidth;
 
   @override

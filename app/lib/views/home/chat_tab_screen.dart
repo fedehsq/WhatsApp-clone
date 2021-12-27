@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/home/contacts_screen.dart';
-import '../chat.dart';
+import '../chat/chat.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../main.dart';
@@ -28,7 +29,7 @@ class ChatTabScreen extends StatefulWidget {
 class _ChatTabScreenState extends State<ChatTabScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
+  final mainChannel = IOWebSocketChannel.connect(server);
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
@@ -58,8 +59,10 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       // Re-open from bg
       case AppLifecycleState.resumed:
         // Next time in app opening, send online to all
-        var json = {'phone': SharedPreferencesManager.getPhoneNumber()};
-        mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
+        mainChannel.sink.add(jsonEncode({
+          'operation': online,
+          'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
+        }));
         break;
       // Just a second before 'paused'
       case AppLifecycleState.inactive:
@@ -67,8 +70,10 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       // App still opens in bg
       case AppLifecycleState.paused:
         // Send offline status to server
-        var json = {'phone': SharedPreferencesManager.getPhoneNumber()};
-        mainChannel.sink.add('OFFLINE: ' + jsonEncode(json));
+        mainChannel.sink.add(jsonEncode({
+          'operation': offline,
+          'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
+        }));
         break;
       // On hard close app (remove from bg)
       case AppLifecycleState.detached:
@@ -112,10 +117,12 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                   // Server sends all registered client: add in list without showing
                   case "USERS":
                     // send a feedback to server for receiving eventually offline messages
-                    SharedPreferences.getInstance().then((value) {
-                      var json = {'phone': value.getString(phoneNumber)};
-                      mainChannel.sink.add('ONLINE: ' + jsonEncode(json));
-                    });
+                    mainChannel.sink.add(jsonEncode({
+                      'operation': online,
+                      'body': {
+                        'phone': SharedPreferencesManager.getPhoneNumber()
+                      }
+                    }));
                     return addContacts(json);
 
                   // In this case, an user send me a message, so update chat list
@@ -300,15 +307,14 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   /// Authentication with server, I send my credentials
   void logIn() {
     firstClientMessage = !firstClientMessage;
-    // Read from disk
-    SharedPreferences.getInstance().then((value) {
-      var json = {
-        'phone': value.getString(phoneNumber),
-        'username': value.getString(username),
-        'photo': value.getString(photo)
-      };
-      mainChannel.sink.add('LOGIN: ' + jsonEncode(json));
-    });
+    mainChannel.sink.add(jsonEncode({
+      'operation': login,
+      'body': {
+        'phone': SharedPreferencesManager.getPhoneNumber(),
+        'username': SharedPreferencesManager.getUsername(),
+        'photo': SharedPreferencesManager.getProfilePic(),
+      }
+    }));
   }
 
   /// Build a contact parsing from json
