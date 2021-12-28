@@ -1,18 +1,33 @@
-const server = 'ws://192.168.1.11:8080';
+const server = 'ws://192.168.1.10:8080';
 
-// Possible operations
+/// Operations provided to the clients 
+ 
+// Client wants to register himself, 
+// server must check if the phone number is already registered
 const registrationRequest = 0;
+// Client can register himself
 const registration = 1;
-// Login after registration
+// Login on opening the app when client is registered
 const login = 2;
-// Opens the chat screen in app
+// Client wants to open another socket for chatting; it opens the ChatScreen
 const chatSocket = 3;
-// Request to send a; message
+// Client requests to send a message to other client
 const send = 4;
-// Client status
+// Client becomes online
 const online = 5;
+// Client becomes offline
 const offline = 6;
 
+/// Responses key-code provided to the clients 
+
+// Server send to the just logged user all other registered users
+const users = 7;
+// Client receives a message
+const message = 8;
+// Client received messages while it isn't online
+const offlineMessages = 9;
+
+/// Response code
 const resultOk = 0;
 const resultKo = 1;
 

@@ -7,7 +7,7 @@ import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/home/contacts_screen.dart';
-import '../chat/chat.dart';
+import 'chat_screen.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../main.dart';
@@ -88,7 +88,11 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
         body: StreamBuilder(
             stream: mainChannel.stream,
@@ -104,18 +108,21 @@ class _ChatTabScreenState extends State<ChatTabScreen>
               // last part the body
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data.toString();
-                var message = '${snapshot.data}'.split(": ")[0];
-                var json = '${snapshot.data}'.split(": ")[1];
+                // Converts byte message in string
+                var json = jsonDecode(snapshot.data.toString());
+                var responseOperation = json['operation'];
+                var body = json['body'];
+
                 // Switch operations
-                switch (message) {
+                switch (responseOperation) {
                   // In this case, update chat list with new online user
                   // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
-                  case "NEW_USER":
+                  case online:
                     // Add the new user without shows him because there aren't messages
-                    return addContact(json);
+                    return addContact(body['online']);
 
                   // Server sends all registered client: add in list without showing
-                  case "USERS":
+                  case users:
                     // send a feedback to server for receiving eventually offline messages
                     mainChannel.sink.add(jsonEncode({
                       'operation': online,
@@ -123,24 +130,24 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                         'phone': SharedPreferencesManager.getPhoneNumber()
                       }
                     }));
-                    return addContacts(json);
+                    return addContacts(body['users']);
 
                   // In this case, an user send me a message, so update chat list
                   // chatWith: {phone: "zzz", message"xxxx"}
-                  case "MESSAGE_FROM":
-                    return updateListViewWithMessage(json);
+                  case message:
+                    return updateListViewWithMessage(body['message']);
 
                   // One or more message, while I am offline
-                  case "MESSAGES_FROM":
-                    return updateListViewWithMessages(json);
+                  case offlineMessages:
+                    return updateListViewWithMessages(body['messages']);
                   // In this case, an user leaved the app,
                   // so change his status to offline
-                  case "LOGOUT":
-                    var decode = jsonDecode(json);
-                    var phone = decode['phone'];
+                  case offline:
+                    var phone = body['phone'];
                     for (var contact in contacts) {
                       if (contact.phone == phone) {
                         contact.isOnline = false;
+                        break;
                       }
                     }
                     break;
@@ -385,7 +392,4 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     }
     return buildListView(contactsListView);
   }
-
-  @override
-  bool get wantKeepAlive => true;
 }

@@ -19,8 +19,8 @@ export class UserDao {
       // Get all offline messages of the user
       var offlineMessages = await MessageDao.deleteAllMessages(user.uid)
       // read all registered users
-      map.set(user['phone'], JSON.stringify(
-        new OnlineUser(user.uid, user.phone, user.username, user.photo, offlineMessages)));
+      map.set(user['phone'],
+        new OnlineUser(user.uid, user.phone, user.username, user.photo, offlineMessages));
     }
     return map
   }
