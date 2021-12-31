@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -118,7 +119,7 @@ class _ProfileSetupState extends State<ProfileSetup> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         // Check for username
                         if (nameController.text.isNotEmpty) {
                           // save username and profile pic (optional)
@@ -128,21 +129,23 @@ class _ProfileSetupState extends State<ProfileSetup> {
                             SharedPreferencesManager.putData(
                                 photo, base64.encode(image!.readAsBytesSync()));
                           } else {
-                           // Load default pic
-                            rootBundle
-                                .load('images/default_profile_pic.png')
-                                .then((bytes) {
-                              SharedPreferencesManager.putData(photo,
-                                  base64.encode(Uint8List.view(bytes.buffer)));
-                            });
+                            // Load default pic
+                            SharedPreferencesManager.putData(
+                                photo,
+                                defaultProfilePic);
                           }
-                          var json = {
-                            'phone': SharedPreferencesManager.getPhoneNumber(),
-                            'username': SharedPreferencesManager.getUsername(),
-                            'photo': SharedPreferencesManager.getProfilePic()
-                          };
+                          log('push');
                           // Send to the server
-                          mainChannel.sink.add('REGISTER: ' + jsonEncode(json));
+                          mainChannel.sink.add(jsonEncode({
+                            'operation': registration,
+                            'body': {
+                              'phone':
+                                  SharedPreferencesManager.getPhoneNumber(),
+                              'username':
+                                  SharedPreferencesManager.getUsername(),
+                              'photo': SharedPreferencesManager.getProfilePic()
+                            }
+                          }));
                         } else {
                           ScaffoldMessenger.of(context)
                               .showSnackBar(const SnackBar(

@@ -12,8 +12,8 @@ export class OnlineUser {
     }
 
      // To send over socket
-    toJson() {
-        return JSON.stringify(this, ["uid", "phone", "username", "photo", "isOnline"]);
+    static toJson(user) {
+        return JSON.stringify(user, ["uid", "phone", "username", "photo", "isOnline"]);
         /*
         return '{"phone":' + '"'+ user.phone + '", "username":' + '"'+ user.username 
         + '", "photo":' + '"'+ user.photo +    '", "isOnline":' + '"'+ user.isOnline + '"}';

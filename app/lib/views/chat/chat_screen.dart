@@ -7,10 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:whatsapp_clone/api.dart';
+import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/models/instant_message.dart';
-import '../models/contact.dart';
-import '../models/message.dart';
-import '../main.dart';
+import '../../models/contact.dart';
+import '../../models/message.dart';
+import '../../main.dart';
 
 /// QUANDO TORNO INDIETRO CONTROLLO SE L'ORA LA QUALE SONO USCITO è > DELLA LAST CONTACT, SE è COSì, SWAPPO!
 
@@ -29,7 +31,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
 
   // connect to server when open a Chat Screen
   IOWebSocketChannel chatChannel =
-      IOWebSocketChannel.connect('ws://192.168.1.4:8080');
+      IOWebSocketChannel.connect(server);
 
   // text messages view
   final chatListView = [];
@@ -64,7 +66,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         // Next time in app opening, login again
         first = true;
-        chatChannel = IOWebSocketChannel.connect('ws://192.168.1.4:8080');
+        chatChannel = IOWebSocketChannel.connect(server);
         break;
       // Just a second before 'paused'
       case AppLifecycleState.inactive:
@@ -72,11 +74,11 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
       // App still opens in bg
       case AppLifecycleState.paused:
         // Send offline status to server
-        SharedPreferences.getInstance().then((value) {
-          var json = {'phone': value.getString(phoneNumber)};
-          chatChannel.sink.add('LOGOUT: ' + jsonEncode(json));
-          chatChannel.sink.close();
-        });
+        chatChannel.sink.add(jsonEncode({
+          'operation': offline,
+          'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
+        }));
+        chatChannel.sink.close();
         break;
       // On hard close app (remove from bg)
       case AppLifecycleState.detached:
@@ -316,14 +318,14 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                   chatListView.add(buildMessageLayout(m));
                                   messageController.text = '';
                                   // encode message as Json object
-
-                                  var jsonMessage = jsonEncode(InstantMessage(
-                                          widget.contact.phone, input)
-                                      .toJson());
-                                  String message = "SEND_TO: " + jsonMessage;
                                   setState(() {
                                     // send to server
-                                    chatChannel.sink.add(message);
+                                    chatChannel.sink.add(jsonEncode({
+                                      'operation': send,
+                                      'body': InstantMessage(
+                                              widget.contact.phone, input)
+                                          .toJson()
+                                    }));
                                   });
                                   // after 300 ms scroll down the list
                                   Timer(const Duration(milliseconds: 500), () {
@@ -425,22 +427,22 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
   /// Tell to the server that I want to start a chat
   void setup() {
     first = !first;
-    // Read from SharedPreferences
-    SharedPreferences.getInstance().then((value) {
-      var messages = [
-        {'phone': value.getString(phoneNumber)},
-        {'dest': widget.contact.phone}
-      ];
-      chatChannel.sink.add('OPEN_CHAT_SOCKET: ' + jsonEncode(messages));
-      // Scroll to the end of list
-      setState(() {
-        buildInitialList();
-        // after 300 ms scroll down the list
-        Timer(const Duration(milliseconds: 500), () {
-          try {
-            controller.jumpTo(controller.position.maxScrollExtent);
-          } catch (e) {}
-        });
+    chatChannel.sink.add(jsonEncode({
+      'operation': chatSocket,
+      'body': {
+        {
+          'phone': SharedPreferencesManager.getPhoneNumber(),
+          'dest': widget.contact.phone
+        }
+      }
+    })); // Scroll to the end of list
+    setState(() {
+      buildInitialList();
+      // after 300 ms scroll down the list
+      Timer(const Duration(milliseconds: 500), () {
+        try {
+          controller.jumpTo(controller.position.maxScrollExtent);
+        } catch (e) {}
       });
     });
   }
