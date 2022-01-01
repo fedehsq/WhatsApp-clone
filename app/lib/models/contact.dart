@@ -1,19 +1,30 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 
 import 'message.dart';
 
-/// Class representing a platform user
+/// Class representing a registered user to WhatsApp.
 class Contact {
   final String phone;
   final String username;
   final Image profileImage;
-  late int toRead;
+  final List<Message> messages;
+  int toRead;
   bool isOnline;
-  late List<Message> messages;
 
-  Contact(this.phone, this.username, this.profileImage, this.isOnline) {
-    toRead = 0;
-    messages = [Message('', true)]; // message list
+  Contact(this.phone, this.username, this.profileImage, this.isOnline,
+      [this.toRead = 0])
+      : messages = [];
+
+  /// Returns a new Contact parsing parameters from [json].
+  factory Contact.fromJson(Map<String, dynamic> json) {
+    return Contact(
+      json['phone'],
+      json['username'],
+      Image.memory(base64Decode(json['photo'])),
+      json['isOnline'],
+    );
   }
 
   @override
@@ -26,9 +37,8 @@ class Contact {
       identical(this, other) ||
       other is Contact &&
           runtimeType == other.runtimeType &&
-          phone == other.phone &&
-          username == other.username;
+          phone == other.phone;
 
   @override
-  int get hashCode => phone.hashCode ^ username.hashCode;
+  int get hashCode => phone.hashCode;
 }

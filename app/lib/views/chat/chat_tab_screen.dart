@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
@@ -25,30 +27,28 @@ class ChatTabScreen extends StatefulWidget {
 /// FLUTTER BUILDS THE CHAT LIST WITH THESE ITEMS
 /// --------------------------------------------------------
 
-/// WidgetsBindingObserver needed to manage offline status of user
+/// Represents the chat list in the WhatsApp homepage.
 class _ChatTabScreenState extends State<ChatTabScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   // Connect to server
-  final mainChannel = IOWebSocketChannel.connect(server);
+  final IOWebSocketChannel mainChannel = IOWebSocketChannel.connect(server);
 
   // Contacts show in UI if there is at least one message (Chat list)
   final List<Contact> contacts = [];
 
   // All ListTile (UI chat)
-  final List<ListTile> contactsListView = [];
+  // final List<ListTile> contactsListView = [];
 
   // Last contact with whom i've chatted, thanks to this variable,
   // when i receive a message, the sender is put as head in the chat list
   Contact? lastContactChat;
-
-  // At the first access i send to the server my credentials: phone, username, photo
-  bool firstClientMessage = true;
 
   // Stop looping if there is also the same message on the stream
   String lastMessage = '';
 
   @override
   void initState() {
+    logIn();
     super.initState();
     WidgetsBinding.instance!.addObserver(this);
   }
@@ -97,12 +97,14 @@ class _ChatTabScreenState extends State<ChatTabScreen>
         body: StreamBuilder(
             stream: mainChannel.stream,
             builder: (context, snapshot) {
+              /*
               // Connection just done, client authentication
               if (firstClientMessage) {
                 logIn();
                 // Shows a blank page while waiting for first server response
                 return buildChatList();
               }
+              */
               // Check if server sends me something, ignoring the same data
               // The first part of message is the operation identifier,
               // last part the body
@@ -117,13 +119,12 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                 switch (responseOperation) {
                   // In this case, update chat list with new online user
                   // newUser: {"phone":"3347552773","username":"fede","photo":"photo"}
-                  case online:
+                  /*case online:
                     // Add the new user without shows him because there aren't messages
                     return addContact(body['online']);
 
                   // Server sends all registered client: add in list without showing
-                  case users:
-                    // send a feedback to server for receiving eventually offline messages
+                   send a feedback to server for receiving eventually offline messages
                     mainChannel.sink.add(jsonEncode({
                       'operation': online,
                       'body': {
@@ -131,17 +132,20 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                       }
                     }));
                     return addContacts(body['users']);
+                    */
 
                   // In this case, an user send me a message, so update chat list
                   // chatWith: {phone: "zzz", message"xxxx"}
                   case message:
-                    return updateListViewWithMessage(body['message']);
+                    _updateContacts(body);
+                    return _buildContactList();
 
                   // One or more message, while I am offline
                   case offlineMessages:
                     return updateListViewWithMessages(body['messages']);
                   // In this case, an user leaved the app,
                   // so change his status to offline
+                  /*
                   case offline:
                     var phone = body['phone'];
                     for (var contact in contacts) {
@@ -151,6 +155,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                       }
                     }
                     break;
+                    */
                 }
                 // idle, nothing happens
               }
@@ -162,10 +167,20 @@ class _ChatTabScreenState extends State<ChatTabScreen>
             Contact? contact = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (BuildContext context) => ContactsScreen(
-                        online: contacts, lastContactChat: lastContactChat!)));
+                    builder: (BuildContext context) => const ContactsScreen()));
             // Check if i have to change list order
             // Check if this user is the last one whit whom I chat
+            log(contact.toString());
+            if (contact != null && !contacts.contains(contact)) {
+              log('dentro');
+              setState(() {
+                contacts.add(contact);
+                log(contacts.toString());
+                // contactsListView.add(buildListTile(contact));
+                lastContactChat = contact;
+              });
+            }
+            /*
             if (contact != null && lastContactChat == null) {
               setState(() {
                 lastContactChat = contact;
@@ -181,6 +196,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                 lastContactChat = contact;
               });
             }
+          */
           },
           child: const Icon(Icons.chat),
         ));
@@ -190,31 +206,38 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   buildListTile(Contact contact) {
     return ListTile(
       onTap: () async {
-        // Remove notify icon
-        contact.toRead = 0;
         // Start Chat screen
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => Chat(contact: contact)),
+          MaterialPageRoute(
+              builder: (context) => Chat(
+                    contact: contact,
+                    addMessage: false,
+                  )),
         );
         // Check if this user is the last one whit whom I chat
         if (lastContactChat == null) {
           setState(() {
             lastContactChat = contact;
+            contact.toRead = 0;
+            log('qua');
           });
         } else if (contact.messages[contact.messages.length - 1].timestamp
             .isAfter(lastContactChat!
                 .messages[lastContactChat!.messages.length - 1].timestamp)) {
           setState(() {
             lastContactChat = contact;
+            lastContactChat!.toRead = 0;
+            log('sotto');
           });
         }
+        // Remove notify icon
+        setState(() {
+          contact.toRead = 0;
+        });
       },
-      leading: CircleAvatar(
-          radius: 25,
-          backgroundImage: contact.profileImage != null
-              ? contact.profileImage.image
-              : const AssetImage('images/default_profile_pic.png')),
+      leading:
+          CircleAvatar(radius: 25, backgroundImage: contact.profileImage.image),
       title: Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
         child: Row(
@@ -292,8 +315,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       if (contacts[i].phone == sender) {
         // Put him in head
         Contact c = contacts.removeAt(i);
-        contactsListView.removeAt(i);
-        contactsListView.insert(0, buildListTile(c));
+        //contactsListView.removeAt(i);
+        //contactsListView.insert(0, buildListTile(c));
         contacts.insert(0, c);
         break;
       }
@@ -305,7 +328,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     if (contacts.isNotEmpty) {
       sortContacts(
           lastContactChat == null ? contacts[0].phone : lastContactChat!.phone);
-      return buildListView(contactsListView);
+      return _buildContactList(/*contactsListView*/);
     } else {
       return const Text('');
     }
@@ -313,7 +336,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
 
   /// Authentication with server, I send my credentials
   void logIn() {
-    firstClientMessage = !firstClientMessage;
+    //firstClientMessage = !firstClientMessage;
     mainChannel.sink.add(jsonEncode({
       'operation': login,
       'body': {
@@ -324,37 +347,39 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     }));
   }
 
+  /*
   /// Build a contact parsing from json
   buildContact(dynamic jsonUser) {
     return Contact(
       jsonUser['phone'],
       jsonUser['username'],
-      jsonUser['photo'] == 'null'
-          ? Image.asset('images/default_profile_pic.png')
-          : Image.memory(base64Decode(jsonUser['photo'])),
+      Image.memory(base64Decode(jsonUser['photo'])),
       jsonUser['isOnline'] == 'false' ? false : true,
     );
   }
+  */
 
   /// Build a ListView
-  ListView buildListView(List l) {
+  ListView _buildContactList() {
     return ListView.builder(
         padding: const EdgeInsets.only(top: 8),
-        itemCount: l.length,
+        itemCount: contacts.length,
         itemBuilder: (BuildContext context, int index) {
-          return contacts[index].messages.length > 1
-              ? l[index]
-              : const Divider(thickness: 0.0, height: 0.0);
+          //return contacts[index].messages.isNotEmpty
+          //? buildListTile(contacts[index])
+          return buildListTile(contacts[index]);
+          //: const Divider(thickness: 0.0, height: 0.0);
         });
   }
 
+  /*
   /// Get a contact sent from the server
   addContact(String json) {
     var jsonUser = jsonDecode(json);
     Contact c = buildContact(jsonUser);
     contacts.add(c);
-    contactsListView.add(buildListTile(c));
-    return buildListView(contactsListView);
+    //contactsListView.add(buildListTile(c));
+    return buildListView();
   }
 
   /// Get contacts sent from the server
@@ -363,33 +388,30 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     for (var msg in json) {
       addContact(msg);
     }
-    return buildListView(contactsListView);
+    return buildListView();
   }
+  */
 
   /// Another client sends me a message, update list view pushing him as head
-  updateListViewWithMessage(String json) {
-    var decode = jsonDecode(json);
-    var phone = decode['phone'];
-    var message = decode['message'];
-    for (var contact in contacts) {
-      if (contact.phone == phone) {
-        lastContactChat = contact;
-        // New message to read! ()
-        contact.toRead++;
-        contact.messages.add(Message(message, true));
-        // put his message as head of chat list
-        sortContacts(contact.phone);
-      }
-    }
-    return buildListView(contactsListView);
+  _updateContacts(dynamic json) {
+    var message = jsonDecode(json['message']);
+    var sender = jsonDecode(json['user']);
+    int i = contacts.indexWhere((element) => element.phone == sender['phone']);
+    lastContactChat =
+        (i == -1) ? Contact.fromJson(sender) : contacts.removeAt(i);
+    // New message to read! ()
+    lastContactChat!.toRead++;
+    lastContactChat!.messages
+        .add(Message(message['message'], fromServer: true));
+    contacts.insert(0, lastContactChat!);
   }
 
   /// Another client sends me a message while I am offline, update list view pushing him as head
   updateListViewWithMessages(String jsonString) {
     var json = jsonDecode(jsonString);
     for (var msg in json) {
-      updateListViewWithMessage(msg);
+      _updateContacts(msg);
     }
-    return buildListView(contactsListView);
+    return _buildContactList();
   }
 }

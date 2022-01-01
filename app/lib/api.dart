@@ -1,8 +1,8 @@
-const server = 'ws://192.168.1.10:8080';
+const server = 'ws://192.168.1.4:8080';
 
-/// Operations provided to the clients 
- 
-// Client wants to register himself, 
+/// Operations provided to the clients
+
+// Client wants to register himself,
 // server must check if the phone number is already registered
 const registrationRequest = 0;
 // Client can register himself
@@ -17,10 +17,9 @@ const send = 4;
 const online = 5;
 // Client becomes offline
 const offline = 6;
-
-/// Responses key-code provided to the clients 
-
-// Server send to the just logged user all other registered users
+// Server send to the client a specific user's info
+const user = 10;
+// Server send to the client all other registered users
 const users = 7;
 // Client receives a message
 const message = 8;

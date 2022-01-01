@@ -2,8 +2,10 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
@@ -18,9 +20,11 @@ import '../../main.dart';
 
 /// Represents the WhatsApp chat screen
 class Chat extends StatefulWidget {
+  final bool addMessage;
   final Contact contact;
 
-  const Chat({Key? key, required this.contact}) : super(key: key);
+  const Chat({Key? key, required this.contact, required this.addMessage})
+      : super(key: key);
   @override
   _ChatState createState() => _ChatState();
 }
@@ -30,11 +34,10 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
   final TextEditingController messageController = TextEditingController();
 
   // connect to server when open a Chat Screen
-  IOWebSocketChannel chatChannel =
-      IOWebSocketChannel.connect(server);
+  IOWebSocketChannel chatChannel = IOWebSocketChannel.connect(server);
 
   // text messages view
-  final chatListView = [];
+  //final chatListView = [];
 
   // chat must scroll down at every received message
   ScrollController controller = ScrollController();
@@ -54,6 +57,13 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
 
   @override
   void initState() {
+    chatChannel.sink.add(jsonEncode({
+      'operation': chatSocket,
+      'body': {
+        'phone': SharedPreferencesManager.getPhoneNumber(),
+        'dest': widget.contact.phone
+      }
+    }));
     super.initState();
     //WidgetsBinding.instance!.addObserver(this);
     // WidgetsBinding.instance.addObserver(this);
@@ -93,37 +103,46 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         body: StreamBuilder(
             stream: chatChannel.stream,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-              // load list for the first time
-              if (first) {
-                setup();
-              }
               // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
-
-                var message = '${snapshot.data}'.split(": ")[0];
-                var json = jsonDecode('${snapshot.data}'.split(": ")[1]);
+                // Converts byte message in string
+                var json = jsonDecode(snapshot.data.toString());
+                var responseOperation = json['operation'];
+                log(snapshot.data.toString());
 
                 // Switch operations
-                switch (message) {
+                switch (responseOperation) {
                   // Single message, when I am online
-                  case "MESSAGE_FROM":
+
+                  case message:
+                    var body = jsonDecode(json['body']['message']);
                     // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
                     // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
-                    if (widget.contact.phone == json['phone']) {
-                      Message m = Message(json['message'], true);
-                      chatListView.add(buildMessageLayout(m));
+                    if (widget.addMessage) {
+                      // Case in which this client starts the chat, in ChatScreenTab there isn't yet the user
+                      widget.contact.messages
+                          .add(Message(body['message'], fromServer: true));
+                    } else {
+                      // Message added in ChatScreenTab
+                      SchedulerBinding.instance!.addPostFrameCallback((_) {
+                        setState(() {});
+                      });
+
+                      //Message m = Message(body['message'], true);
+                      //chatListView.add(buildMessageLayout(m));
                     }
                     break;
+                  /*
                   // One or more message, while I am offline
-                  case "MESSAGES_FROM":
+                  case offlineMessages:
                     // How many messages have I received while I was offline?
                     int toRead = 0;
                     for (var message in json) {
                       toRead++;
                       var json = jsonDecode(message);
-                      if (widget.contact.phone == json['phone']) {
-                        Message m = Message(json['message'], true);
+                      if (widget.contact.phone == body['phone']) {
+                        Message m = Message(body['message'], true);
                         chatListView.add(buildMessageLayout(m));
                       }
                     }
@@ -140,38 +159,47 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                   style: const TextStyle(color: Colors.white),
                                 ))),
                           ));
-                    }
-
+                    }                    
                     break;
+
+                    */
+
                   // A client is gone offline
-                  case 'OFFLINE':
+                  case offline:
+                    var body = json['body'];
                     // Check if he is my peer
-                    if (widget.contact.phone == json['phone']) {
+                    if (widget.contact.phone == body['phone']) {
                       widget.contact.isOnline = false;
                     }
                     break;
 
                   // A client is coming online
-                  case 'ONLINE':
+                  case online:
+                    var body = json['body'];
                     // Check if he is my peer
-                    if (widget.contact.phone == json['phone']) {
+                    if (widget.contact.phone == body['phone']) {
                       widget.contact.isOnline = true;
                     }
                     break;
                 }
+                SchedulerBinding.instance!.addPostFrameCallback((_) {
+                  controller.jumpTo(controller.position.maxScrollExtent);
+                });
                 // after 300 ms scroll down the list
+                /*
                 Timer(const Duration(milliseconds: 500), () {
                   try {
                     controller.jumpTo(controller.position.maxScrollExtent);
                   } catch (e) {}
                 });
+                */
               }
               return Stack(children: [
                 const SingleChildScrollView(
                   child: Opacity(
                       opacity: 0.1,
                       child: Padding(
-                        padding: EdgeInsets.only(top: 64.0),
+                        padding: EdgeInsets.only(top: 100.0),
                         child: Image(image: AssetImage('images/chat_bg.png')),
                       )),
                 ),
@@ -233,9 +261,10 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                     Expanded(
                       child: ListView.builder(
                           controller: controller,
-                          itemCount: chatListView.length,
+                          itemCount: widget.contact.messages.length,
                           itemBuilder: (BuildContext context, int index) {
-                            return chatListView[index];
+                            return buildMessageLayout(
+                                widget.contact.messages[index]);
                           }),
                     ),
                     Row(
@@ -244,7 +273,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                           child: Padding(
                             padding: const EdgeInsets.only(left: 8.0),
                             child: TextField(
-                              onTap: () {
+                              /*onTap: () {
                                 Timer(const Duration(milliseconds: 500), () {
                                   try {
                                     controller.jumpTo(
@@ -252,17 +281,21 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                   } catch (e) {}
                                 });
                                 // Remove message that indicates notification
+                                
                                 if (notifyPosition != -1) {
                                   setState(() {
                                     chatListView.removeAt(notifyPosition);
                                     notifyPosition = -1;
                                   });
                                 }
-                              },
+                                 
+                              }, */
+                              /*
                               onChanged: (String value) {
-                                // Set photo icon if text is empty
+                                / Set photo icon if text is empty
                                 setState(() {});
-                              },
+                              }
+                              */
                               maxLines: null,
                               // go down when reached tot char
                               controller: messageController,
@@ -313,27 +346,27 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                 // save user input
                                 input = messageController.text;
                                 if (input.isNotEmpty) {
-                                  Message m = Message(input, false);
-                                  widget.contact.messages.add(m);
-                                  chatListView.add(buildMessageLayout(m));
+                                  widget.contact.messages.add(Message(input, fromServer: false));
+                                  //chatListView.add(buildMessageLayout(m));
                                   messageController.text = '';
                                   // encode message as Json object
                                   setState(() {
                                     // send to server
                                     chatChannel.sink.add(jsonEncode({
                                       'operation': send,
-                                      'body': InstantMessage(
-                                              widget.contact.phone, input)
-                                          .toJson()
+                                      'body': {
+                                        'dest': widget.contact.phone,
+                                        'message': input
+                                      }
                                     }));
                                   });
                                   // after 300 ms scroll down the list
-                                  Timer(const Duration(milliseconds: 500), () {
+                                  /*Timer(const Duration(milliseconds: 500), () {
                                     try {
                                       controller.jumpTo(
                                           controller.position.maxScrollExtent);
                                     } catch (e) {}
-                                  });
+                                  });*/
                                 }
                               },
                               icon: const Icon(Icons.send, color: Colors.white))
@@ -346,6 +379,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
             }));
   }
 
+  /*
   /// On opening Chat screen all messages are loaded
   buildInitialList() {
     for (var m in widget.contact.messages) {
@@ -354,6 +388,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
       }
     }
   }
+  */
 
   /// Build message view, am i the sender or not?
   buildMessageLayout(Message message) {
@@ -425,17 +460,16 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
   }
 
   /// Tell to the server that I want to start a chat
-  void setup() {
+  /*void setup() {
     first = !first;
     chatChannel.sink.add(jsonEncode({
       'operation': chatSocket,
       'body': {
-        {
-          'phone': SharedPreferencesManager.getPhoneNumber(),
-          'dest': widget.contact.phone
-        }
+        'phone': SharedPreferencesManager.getPhoneNumber(),
+        'dest': widget.contact.phone
       }
     })); // Scroll to the end of list
+    
     setState(() {
       buildInitialList();
       // after 300 ms scroll down the list
@@ -445,5 +479,6 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         } catch (e) {}
       });
     });
-  }
+    
+  }*/
 }

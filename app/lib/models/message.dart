@@ -1,10 +1,21 @@
-/// Class representing text message, it contains message and timestamp
+import 'dart:convert';
+import '../../models/contact.dart';
+
+/// Class representing text message, it contains message and timestamp.
+/// This is a field of [Contact] class.
 class Message {
   final String text;
   final bool fromServer;
-  late DateTime timestamp;
+  final DateTime timestamp;
 
-  Message(this.text, this.fromServer) {
-    timestamp = DateTime.now();
+  Message(this.text, {required this.fromServer}) : timestamp = DateTime.now();
+
+  @override
+  String toString() {
+    return jsonEncode({
+      'text': text,
+      'fromServer': fromServer,
+      'timestamp': timestamp.toString()
+    });
   }
 }
