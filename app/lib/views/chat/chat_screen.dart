@@ -116,21 +116,23 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                   // Single message, when I am online
 
                   case message:
-                    var body = jsonDecode(json['body']['message']);
-                    // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
-                    // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
-                    if (widget.addMessage) {
-                      // Case in which this client starts the chat, in ChatScreenTab there isn't yet the user
-                      widget.contact.messages
-                          .add(Message(body['message'], fromServer: true));
-                    } else {
-                      // Message added in ChatScreenTab
-                      SchedulerBinding.instance!.addPostFrameCallback((_) {
-                        setState(() {});
-                      });
+                    var message = jsonDecode(json['body']['message']);
+                    if (message['phone'] == widget.contact.phone) {
+                      // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
+                      // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
+                      if (widget.addMessage) {
+                        // Case in which this client starts the chat, in ChatScreenTab there isn't yet the user
+                        widget.contact.messages
+                            .add(Message(message['message'], fromServer: true));
+                      } else {
+                        // Message added in ChatScreenTab
+                        SchedulerBinding.instance!.addPostFrameCallback((_) {
+                          setState(() {});
+                        });
 
-                      //Message m = Message(body['message'], true);
-                      //chatListView.add(buildMessageLayout(m));
+                        //Message m = Message(body['message'], true);
+                        //chatListView.add(buildMessageLayout(m));
+                      }
                     }
                     break;
                   /*
@@ -346,7 +348,8 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                                 // save user input
                                 input = messageController.text;
                                 if (input.isNotEmpty) {
-                                  widget.contact.messages.add(Message(input, fromServer: false));
+                                  widget.contact.messages
+                                      .add(Message(input, fromServer: false));
                                   //chatListView.add(buildMessageLayout(m));
                                   messageController.text = '';
                                   // encode message as Json object

@@ -33,15 +33,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   // Connect to server
   final IOWebSocketChannel mainChannel = IOWebSocketChannel.connect(server);
 
-  // Contacts show in UI if there is at least one message (Chat list)
+  // Contacts
   final List<Contact> contacts = [];
-
-  // All ListTile (UI chat)
-  // final List<ListTile> contactsListView = [];
-
-  // Last contact with whom i've chatted, thanks to this variable,
-  // when i receive a message, the sender is put as head in the chat list
-  Contact? lastContactChat;
 
   // Stop looping if there is also the same message on the stream
   String lastMessage = '';
@@ -56,27 +49,23 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
-      // Re-open from bg
       case AppLifecycleState.resumed:
-        // Next time in app opening, send online to all
+        // Send online status to the server
         mainChannel.sink.add(jsonEncode({
           'operation': online,
           'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
         }));
         break;
-      // Just a second before 'paused'
-      case AppLifecycleState.inactive:
-        break;
-      // App still opens in bg
+
+      // Send offline status to the server (app yet opens in background)
       case AppLifecycleState.paused:
-        // Send offline status to server
         mainChannel.sink.add(jsonEncode({
           'operation': offline,
           'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
         }));
         break;
       // On hard close app (remove from bg)
-      case AppLifecycleState.detached:
+      default:
         break;
     }
   }
@@ -160,7 +149,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                 // idle, nothing happens
               }
               // Simply build list view if there is some chat
-              return buildChatList();
+              return _buildContactList();
             }),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
@@ -170,33 +159,21 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                     builder: (BuildContext context) => const ContactsScreen()));
             // Check if i have to change list order
             // Check if this user is the last one whit whom I chat
-            log(contact.toString());
-            if (contact != null && !contacts.contains(contact)) {
-              log('dentro');
-              setState(() {
+            if (contact != null) {
+              if (!contacts.contains(contact)) {
                 contacts.add(contact);
-                log(contacts.toString());
-                // contactsListView.add(buildListTile(contact));
-                lastContactChat = contact;
-              });
+              }
+              contacts.sort((b, a) => a.messages.last.timestamp
+                  .compareTo(b.messages.last.timestamp));
+              /*
+              if (contact.messages.last.timestamp
+                  .isAfter(contacts.first.messages.last.timestamp)) {
+                contacts.remove(contact);
+                contacts.insert(0, contact);
+              }
+              */
+              setState(() {});
             }
-            /*
-            if (contact != null && lastContactChat == null) {
-              setState(() {
-                lastContactChat = contact;
-              });
-            }
-            if (contact != null &&
-                lastContactChat != null &&
-                contact.messages[contact.messages.length - 1].timestamp.isAfter(
-                    lastContactChat!
-                        .messages[lastContactChat!.messages.length - 1]
-                        .timestamp)) {
-              setState(() {
-                lastContactChat = contact;
-              });
-            }
-          */
           },
           child: const Icon(Icons.chat),
         ));
@@ -215,26 +192,21 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                     addMessage: false,
                   )),
         );
-        // Check if this user is the last one whit whom I chat
-        if (lastContactChat == null) {
-          setState(() {
-            lastContactChat = contact;
-            contact.toRead = 0;
-            log('qua');
-          });
-        } else if (contact.messages[contact.messages.length - 1].timestamp
-            .isAfter(lastContactChat!
-                .messages[lastContactChat!.messages.length - 1].timestamp)) {
-          setState(() {
-            lastContactChat = contact;
-            lastContactChat!.toRead = 0;
-            log('sotto');
-          });
-        }
         // Remove notify icon
-        setState(() {
-          contact.toRead = 0;
-        });
+        contact.toRead = 0;
+        // Sort from last received to first received
+        contacts.sort((b, a) =>
+            a.messages.last.timestamp.compareTo(b.messages.last.timestamp));
+        /*
+        // Check if this user is the last one whit whom I chat
+        if (contact.messages.last.timestamp
+            .isAfter(contacts.first.messages.last.timestamp)) {
+          contacts.remove(contact);
+          contacts.insert(0, contact);
+        }
+        */
+
+        setState(() {});
       },
       leading:
           CircleAvatar(radius: 25, backgroundImage: contact.profileImage.image),
@@ -308,32 +280,6 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     );
   }
 
-  /// At every received message, add last message in the preview and put
-  /// sender as head item, the last items don't change
-  sortContacts(String sender) {
-    for (int i = 0; i < contacts.length; i++) {
-      if (contacts[i].phone == sender) {
-        // Put him in head
-        Contact c = contacts.removeAt(i);
-        //contactsListView.removeAt(i);
-        //contactsListView.insert(0, buildListTile(c));
-        contacts.insert(0, c);
-        break;
-      }
-    }
-  }
-
-  /// Build the chat list view
-  buildChatList() {
-    if (contacts.isNotEmpty) {
-      sortContacts(
-          lastContactChat == null ? contacts[0].phone : lastContactChat!.phone);
-      return _buildContactList(/*contactsListView*/);
-    } else {
-      return const Text('');
-    }
-  }
-
   /// Authentication with server, I send my credentials
   void logIn() {
     //firstClientMessage = !firstClientMessage;
@@ -397,13 +343,12 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     var message = jsonDecode(json['message']);
     var sender = jsonDecode(json['user']);
     int i = contacts.indexWhere((element) => element.phone == sender['phone']);
-    lastContactChat =
+    Contact contact =
         (i == -1) ? Contact.fromJson(sender) : contacts.removeAt(i);
     // New message to read! ()
-    lastContactChat!.toRead++;
-    lastContactChat!.messages
-        .add(Message(message['message'], fromServer: true));
-    contacts.insert(0, lastContactChat!);
+    contact.toRead++;
+    contact.messages.add(Message(message['message'], fromServer: true));
+    contacts.insert(0, contact);
   }
 
   /// Another client sends me a message while I am offline, update list view pushing him as head

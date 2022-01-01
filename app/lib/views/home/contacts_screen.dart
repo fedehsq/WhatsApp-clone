@@ -67,7 +67,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             context,
             MaterialPageRoute(builder: (context) => Chat(contact: contact, addMessage: contact.messages.isEmpty ? true : false)),
           );
-          Navigator.pop(context, chatter);
+          Navigator.pop(context, chatter.messages.isEmpty ? null : chatter);
         },
         leading: CircleAvatar(
             radius: 25, backgroundImage: contact.profileImage.image),
