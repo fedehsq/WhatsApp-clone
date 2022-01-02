@@ -54,7 +54,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             }));
   }
 
-  /// Build the Widget representing a contact with his info
+  /// Build the Widget representing a [contact] with his info.
   Padding _buildListTile(Contact contact) {
     return Padding(
       padding: const EdgeInsets.all(8.0),

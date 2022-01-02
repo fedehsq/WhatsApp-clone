@@ -29,7 +29,12 @@ class Contact {
 
   @override
   String toString() {
-    return 'Contact{phone: $phone, username: $username, profileImage: $profileImage}';
+    return jsonEncode({
+      'phone' : phone,
+      'username' : username,
+      'profileImage' : profileImage.toString(),
+      'messages' : messages.toString()
+    });
   }
 
   @override

@@ -1,26 +1,24 @@
-// ignore_for_file: empty_catches
-
-import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
-import 'package:whatsapp_clone/models/instant_message.dart';
+import 'package:whatsapp_clone/views/contacts/contacts_screen.dart';
 import '../../models/contact.dart';
 import '../../models/message.dart';
 import '../../main.dart';
 
-/// QUANDO TORNO INDIETRO CONTROLLO SE L'ORA LA QUALE SONO USCITO è > DELLA LAST CONTACT, SE è COSì, SWAPPO!
-
-/// Represents the WhatsApp chat screen
+/// Class representing the WhatsApp chat screen.
 class Chat extends StatefulWidget {
+  /// Indicates if the messages received must be added by this [Chat].
+  /// (true only if the chat starts through [ContactsScreen]).
   final bool addMessage;
+
+  /// The receiver [contact] of this [Chat].
   final Contact contact;
 
   const Chat({Key? key, required this.contact, required this.addMessage})
@@ -30,33 +28,28 @@ class Chat extends StatefulWidget {
 }
 
 class _ChatState extends State<Chat> with WidgetsBindingObserver {
-  // for user input
+  /// Manage user input.
   final TextEditingController messageController = TextEditingController();
 
-  // connect to server when open a Chat Screen
+  /// Connection with WhatsApp's [server].
   IOWebSocketChannel chatChannel = IOWebSocketChannel.connect(server);
 
-  // text messages view
-  //final chatListView = [];
-
-  // chat must scroll down at every received message
+  /// Manage scrolling: scroll down for every sent or received [Message].
   ScrollController controller = ScrollController();
 
-  // read from user
+  /// User's input.
   String input = '';
 
-  // initialize the chat
-  bool first = true;
-
-  // Index of notification messages, so i know how to remove it in O(1)
-  // when tap ok keyboard
+  /// Index of notification messages, so i know how to remove it in O(1)
+  /// when tap ok keyboard
   int notifyPosition = -1;
 
-  // Stop looping if there is also the same message on the stream
+  /// Avoid duplicated messages after a setState(() {}) invocation.
   var lastMessage = '';
 
   @override
   void initState() {
+    // Get the peer's status
     chatChannel.sink.add(jsonEncode({
       'operation': chatSocket,
       'body': {
@@ -64,26 +57,22 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         'dest': widget.contact.phone
       }
     }));
+    // Scroll down when client enters the chat
+    SchedulerBinding.instance!.addPostFrameCallback((_) {
+      controller.jumpTo(controller.position.maxScrollExtent);
+    });
     super.initState();
-    //WidgetsBinding.instance!.addObserver(this);
-    // WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
-      // Re-open from bg
+      // Send online status to the server
       case AppLifecycleState.resumed:
-        // Next time in app opening, login again
-        first = true;
         chatChannel = IOWebSocketChannel.connect(server);
         break;
-      // Just a second before 'paused'
-      case AppLifecycleState.inactive:
-        break;
-      // App still opens in bg
+      // Send offline status to the server (app yet opened in background)
       case AppLifecycleState.paused:
-        // Send offline status to server
         chatChannel.sink.add(jsonEncode({
           'operation': offline,
           'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
@@ -91,7 +80,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         chatChannel.sink.close();
         break;
       // On hard close app (remove from bg)
-      case AppLifecycleState.detached:
+      default:
         break;
     }
   }
@@ -103,25 +92,22 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         body: StreamBuilder(
             stream: chatChannel.stream,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-              // Add message of other client (check if the stream in new)
               if (snapshot.hasData && lastMessage != snapshot.data) {
                 lastMessage = snapshot.data;
                 // Converts byte message in string
                 var json = jsonDecode(snapshot.data.toString());
                 var responseOperation = json['operation'];
-                log(snapshot.data.toString());
+                log(responseOperation.toString());
 
                 // Switch operations
                 switch (responseOperation) {
-                  // Single message, when I am online
-
+                  // Client sends a message
                   case message:
                     var message = jsonDecode(json['body']['message']);
+                    // Check if the received message comes from this peer
                     if (message['phone'] == widget.contact.phone) {
-                      // I MUST ALSO CHECK THAT THE SENDER IS THE CONTACT WITH WHOM I AM IN THE CHAT!
-                      // BECAUSE ANYONE SEND ME A MESSAGE, I RECEIVE THAT!
                       if (widget.addMessage) {
-                        // Case in which this client starts the chat, in ChatScreenTab there isn't yet the user
+                        // Case in which this client starts the chat through ContactsScreen
                         widget.contact.messages
                             .add(Message(message['message'], fromServer: true));
                       } else {
@@ -129,9 +115,6 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                         SchedulerBinding.instance!.addPostFrameCallback((_) {
                           setState(() {});
                         });
-
-                        //Message m = Message(body['message'], true);
-                        //chatListView.add(buildMessageLayout(m));
                       }
                     }
                     break;
@@ -163,238 +146,224 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                           ));
                     }                    
                     break;
-
                     */
 
-                  // A client is gone offline
+                  // A client comes offline
                   case offline:
-                    var body = json['body'];
-                    // Check if he is my peer
+                    var body = jsonDecode(json['body']['offline']);
+                    // Check if it is the peer in this chat
                     if (widget.contact.phone == body['phone']) {
                       widget.contact.isOnline = false;
                     }
                     break;
 
-                  // A client is coming online
+                  // A client comes online
                   case online:
-                    var body = json['body'];
-                    // Check if he is my peer
+                    var body = jsonDecode(json['body']['online']);
+                    log(body.toString());
+                    // Check if it is the peer in this chat
                     if (widget.contact.phone == body['phone']) {
                       widget.contact.isOnline = true;
                     }
                     break;
                 }
+                // Scroll down
                 SchedulerBinding.instance!.addPostFrameCallback((_) {
                   controller.jumpTo(controller.position.maxScrollExtent);
                 });
-                // after 300 ms scroll down the list
-                /*
-                Timer(const Duration(milliseconds: 500), () {
-                  try {
-                    controller.jumpTo(controller.position.maxScrollExtent);
-                  } catch (e) {}
-                });
-                */
               }
-              return Stack(children: [
-                const SingleChildScrollView(
-                  child: Opacity(
-                      opacity: 0.1,
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 100.0),
-                        child: Image(image: AssetImage('images/chat_bg.png')),
-                      )),
-                ),
-                Column(
-                  children: [
-                    AppBar(
-                      backgroundColor: primaryColor,
-                      automaticallyImplyLeading: false,
-                      titleSpacing: 0.0,
-                      title: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                              width: 32,
-                              child: IconButton(
-                                  icon: const Icon(Icons.arrow_back),
-                                  // Remove the flag of notification from this chat
-                                  onPressed: () {
-                                    widget.contact.toRead = 0;
-                                    Navigator.pop(context, widget.contact);
-                                  })),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: CircleAvatar(
-                              backgroundImage:
-                                  widget.contact.profileImage.image,
-                              //widget.contact.profileImage,
-                              backgroundColor: primaryColor,
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(widget.contact.username,
-                                  style: const TextStyle(fontSize: 17)),
-                              if (widget.contact.isOnline)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 4.0),
-                                  child: Text('Online',
-                                      style: TextStyle(fontSize: 10)),
-                                )
-                            ],
-                          ),
-                        ],
-                      ),
-                      actions: [
-                        IconButton(
-                            onPressed: () => {},
-                            icon: const Icon(Icons.videocam_rounded)),
-                        IconButton(
-                            onPressed: () => {}, icon: const Icon(Icons.call)),
-                        IconButton(
-                            onPressed: () => {},
-                            icon: const Icon(Icons.more_vert)),
-                      ],
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                          controller: controller,
-                          itemCount: widget.contact.messages.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            return buildMessageLayout(
-                                widget.contact.messages[index]);
-                          }),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: TextField(
-                              /*onTap: () {
-                                Timer(const Duration(milliseconds: 500), () {
-                                  try {
-                                    controller.jumpTo(
-                                        controller.position.maxScrollExtent);
-                                  } catch (e) {}
-                                });
-                                // Remove message that indicates notification
-                                
-                                if (notifyPosition != -1) {
-                                  setState(() {
-                                    chatListView.removeAt(notifyPosition);
-                                    notifyPosition = -1;
-                                  });
-                                }
-                                 
-                              }, */
-                              /*
-                              onChanged: (String value) {
-                                / Set photo icon if text is empty
-                                setState(() {});
-                              }
-                              */
-                              maxLines: null,
-                              // go down when reached tot char
-                              controller: messageController,
-                              style: const TextStyle(color: textColor),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: primaryColor,
-                                prefixIcon: const Icon(
-                                  Icons.emoji_emotions,
-                                  color: Colors.grey,
-                                ),
-                                contentPadding: const EdgeInsets.only(left: 8),
-                                hintText: 'Scrivi un messaggio',
-                                suffixIcon: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.attachment),
-                                      color: textColor,
-                                      onPressed: () {},
-                                    ),
-                                    if (messageController.text.isEmpty)
-                                      IconButton(
-                                        icon: const Icon(
-                                            Icons.photo_camera_rounded),
-                                        color: textColor,
-                                        onPressed: () {},
-                                      ),
-                                  ],
-                                ),
-                                border: OutlineInputBorder(
-                                  borderSide: BorderSide.none,
-                                  borderRadius: BorderRadius.circular(32),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Stack(alignment: Alignment.center, children: [
-                          const Icon(
-                            Icons.circle,
-                            color: secondaryColor,
-                            size: 56,
-                          ),
-                          IconButton(
-                              onPressed: () {
-                                // save user input
-                                input = messageController.text;
-                                if (input.isNotEmpty) {
-                                  widget.contact.messages
-                                      .add(Message(input, fromServer: false));
-                                  //chatListView.add(buildMessageLayout(m));
-                                  messageController.text = '';
-                                  // encode message as Json object
-                                  setState(() {
-                                    // send to server
-                                    chatChannel.sink.add(jsonEncode({
-                                      'operation': send,
-                                      'body': {
-                                        'dest': widget.contact.phone,
-                                        'message': input
-                                      }
-                                    }));
-                                  });
-                                  // after 300 ms scroll down the list
-                                  /*Timer(const Duration(milliseconds: 500), () {
-                                    try {
-                                      controller.jumpTo(
-                                          controller.position.maxScrollExtent);
-                                    } catch (e) {}
-                                  });*/
-                                }
-                              },
-                              icon: const Icon(Icons.send, color: Colors.white))
-                        ])
-                      ],
-                    ),
-                  ],
-                ),
-              ]);
+              return _buildChatStack();
             }));
   }
 
-  /*
-  /// On opening Chat screen all messages are loaded
-  buildInitialList() {
-    for (var m in widget.contact.messages) {
-      if (m.text.isNotEmpty) {
-        chatListView.add(buildMessageLayout(m));
-      }
-    }
+  /// Stack representing the WhatsApp's chat screen.
+  Stack _buildChatStack() {
+    return Stack(children: [
+      const SingleChildScrollView(
+        // Background image
+        child: Opacity(
+            opacity: 0.1,
+            child: Padding(
+              padding: EdgeInsets.only(top: 80.0),
+              child: Image(image: AssetImage('images/chat_bg.png')),
+            )),
+      ),
+      Column(
+        children: [
+          // Peer's info
+          AppBar(
+            backgroundColor: primaryColor,
+            automaticallyImplyLeading: false,
+            titleSpacing: 0.0,
+            // Options to the left on the AppBar
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Left arrow
+                SizedBox(
+                    width: 32,
+                    child: IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        // Remove the flag of notification from this chat
+                        onPressed: () {
+                          widget.contact.toRead = 0;
+                          Navigator.pop(context, widget.contact);
+                        })),
+                // Peer's profile pic
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: CircleAvatar(
+                    backgroundImage: widget.contact.profileImage.image,
+                    backgroundColor: primaryColor,
+                  ),
+                ),
+                // Peer's status
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.contact.username,
+                        style: const TextStyle(fontSize: 17)),
+                    if (widget.contact.isOnline)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4.0),
+                        child: Text('Online', style: TextStyle(fontSize: 10)),
+                      )
+                  ],
+                ),
+              ],
+            ),
+            // Options to the right on the AppBar
+            actions: [
+              IconButton(
+                  onPressed: () => {},
+                  icon: const Icon(Icons.videocam_rounded)),
+              IconButton(onPressed: () => {}, icon: const Icon(Icons.call)),
+              IconButton(
+                  onPressed: () => {}, icon: const Icon(Icons.more_vert)),
+            ],
+          ),
+          // List containig the messages
+          Expanded(
+            child: ListView.builder(
+                controller: controller,
+                itemCount: widget.contact.messages.length,
+                itemBuilder: (BuildContext context, int index) {
+                  return _buildMessageLayout(widget.contact.messages[index]);
+                }),
+          ),
+          // TextField for user input and files buttons
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: TextField(
+                    /*onTap: () {
+                      Timer(const Duration(milliseconds: 500), () {
+                        try {
+                          controller.jumpTo(
+                              controller.position.maxScrollExtent);
+                        } catch (e) {}
+                      });
+                      // Remove message that indicates notification
+                      
+                      if (notifyPosition != -1) {
+                        setState(() {
+                          chatListView.removeAt(notifyPosition);
+                          notifyPosition = -1;
+                        });
+                      }
+                       
+                    }, */
+                    /*
+                    onChanged: (String value) {
+                      / Set photo icon if text is empty
+                      setState(() {});
+                    }
+                    */
+                    maxLines: null,
+                    // Goes to a new line after n char
+                    controller: messageController,
+                    style: const TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: primaryColor,
+                      prefixIcon: const Icon(
+                        Icons.emoji_emotions,
+                        color: Colors.grey,
+                      ),
+                      contentPadding: const EdgeInsets.only(left: 8),
+                      hintText: 'Scrivi un messaggio',
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.attachment),
+                            color: textColor,
+                            onPressed: () {},
+                          ),
+                          if (messageController.text.isEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.photo_camera_rounded),
+                              color: textColor,
+                              onPressed: () {},
+                            ),
+                        ],
+                      ),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Send button
+              Stack(alignment: Alignment.center, children: [
+                const Icon(
+                  Icons.circle,
+                  color: secondaryColor,
+                  size: 56,
+                ),
+                IconButton(
+                    onPressed: () {
+                      // Save user input
+                      input = messageController.text;
+                      if (input.isNotEmpty) {
+                        widget.contact.messages
+                            .add(Message(input, fromServer: false));
+                        messageController.text = '';
+                        // Encode message as Json object
+                        setState(() {
+                          // send to server
+                          chatChannel.sink.add(jsonEncode({
+                            'operation': send,
+                            'body': {
+                              'dest': widget.contact.phone,
+                              'message': input
+                            }
+                          }));
+                        });
+                        SchedulerBinding.instance!.addPostFrameCallback((_) {
+                          controller
+                              .jumpTo(controller.position.maxScrollExtent);
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.send, color: Colors.white))
+              ])
+            ],
+          ),
+        ],
+      ),
+    ]);
   }
-  */
 
-  /// Build message view, am i the sender or not?
-  buildMessageLayout(Message message) {
+  /// Build [message] layout, checking where to place it.
+  _buildMessageLayout(Message message) {
     return Align(
         alignment:
             message.fromServer ? Alignment.centerLeft : Alignment.centerRight,
@@ -421,10 +390,8 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0, right: 2),
                       child: Text(
-                          DateFormat('HH:mm').format(widget
-                              .contact
-                              .messages[widget.contact.messages.length - 1]
-                              .timestamp),
+                          DateFormat('HH:mm')
+                              .format(widget.contact.messages.last.timestamp),
                           style: const TextStyle(
                               color: Colors.transparent, fontSize: 10)),
                     ),
@@ -461,27 +428,4 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
     chatChannel.sink.close();
     super.dispose();
   }
-
-  /// Tell to the server that I want to start a chat
-  /*void setup() {
-    first = !first;
-    chatChannel.sink.add(jsonEncode({
-      'operation': chatSocket,
-      'body': {
-        'phone': SharedPreferencesManager.getPhoneNumber(),
-        'dest': widget.contact.phone
-      }
-    })); // Scroll to the end of list
-    
-    setState(() {
-      buildInitialList();
-      // after 300 ms scroll down the list
-      Timer(const Duration(milliseconds: 500), () {
-        try {
-          controller.jumpTo(controller.position.maxScrollExtent);
-        } catch (e) {}
-      });
-    });
-    
-  }*/
 }

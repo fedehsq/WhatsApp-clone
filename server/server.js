@@ -242,7 +242,9 @@ function setOnline(body) {
   let user = onlineUsers.get(phone);
   user.isOnline = true;
   // Forward all messages while he was offline
-  sendOfflineMessages(user);
+  if (user.offlineMessages.length > 0) {
+    sendOfflineMessages(user);
+  }
   // Notify to all other online users on the ChatScreen the new user status
   sendOnlineStatus(phone);
 }

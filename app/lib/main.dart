@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whatsapp_clone/views/registration/welcome_screen.dart';
 
 import 'managers/preference_manager.dart';
-import 'views/home/homepage_screen.dart';
+import 'views/tabs/homepage_screen.dart';
 
 const Color backgroundColor = Color.fromARGB(255, 16, 29, 36);
 const Color chatColor = Color.fromARGB(255, 5, 71, 64);
