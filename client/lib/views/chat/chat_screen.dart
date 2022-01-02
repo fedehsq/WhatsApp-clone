@@ -63,6 +63,13 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
     });
     super.initState();
   }
+  
+  @override
+  void dispose() {
+    controller.dispose();
+    chatChannel.sink.close();
+    super.dispose();
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -387,9 +394,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                     // Very tricky
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0, right: 2),
-                      child: Text(
-                          DateFormat('HH:mm')
-                              .format(widget.contact.messages.last.timestamp),
+                      child: Text(DateFormat('HH:mm').format(message.timestamp),
                           style: const TextStyle(
                               color: Colors.transparent, fontSize: 10)),
                     ),
@@ -404,11 +409,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0, right: 2),
-                      child: Text(
-                          DateFormat('HH:mm').format(widget
-                              .contact
-                              .messages[widget.contact.messages.length - 1]
-                              .timestamp),
+                      child: Text(DateFormat('HH:mm').format(message.timestamp),
                           style: const TextStyle(
                               color: Colors.grey, fontSize: 10)),
                     ),
@@ -420,10 +421,4 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
         ));
   }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    chatChannel.sink.close();
-    super.dispose();
-  }
 }

@@ -27,6 +27,14 @@ class Contact {
     );
   }
 
+  Map<String, Object?> toMap() {
+    return {
+      'phone' : phone,
+      'username' : username,
+      'profileImage' : profileImage.toString(),
+    };
+  }
+
   @override
   String toString() {
     return jsonEncode({

@@ -344,15 +344,14 @@ function createChatConnection(body, socket) {
   var inChatUser = onlineUsers.get(phone);
   inChatUser.chatSocket = socket;
   // Notify the peer status
-  if (peer == null) {    
-    inChatUser.chatSocket.send(JSON.stringify(
-      {
-        'status_code' : RESULT_OK,
-        'operation' : OFFLINE,
-        'body': {
-          'offline' : registeredUsers.get(body['dest']).phone
-        }
-      }));
+  if (peer == null) {   
+    inChatUser.chatSocket.send(JSON.stringify({
+      'status_code': RESULT_OK,
+      'operation': OFFLINE,
+      'body': {
+        'offline': JSON.stringify({ 'phone': phone })
+      }
+    }));
   }
   return inChatUser;
   /// SERVER MUST SENDS TO ALL CHAT SOCKET THE PEER STATUS, SO IN CLIENT I CAN ALWAYS REBUILD THE APPBAR WITH STAUS!
@@ -377,26 +376,13 @@ function login(body, socket) {
   let user = registeredUsers.get(body['phone']);
   user.mainSocket = socket;
   user.isOnline = true;
-
-  /*
-  // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
-  let users = [];
-  for (const user of registeredUsers.values()) {
-    users.push(OnlineUser.toJson(user));
-  }
-
-  // Sends all registered users to user 
-  user.mainSocket.send(JSON.stringify(
-    {
-      'status_code' : RESULT_OK,
-      'operation' : USERS,
-      'body': {
-        'users' : JSON.stringify(users)}
-    }
-  ));
-  */
   // Add just connected user to online users map
   onlineUsers.set(body['phone'], user);
+  // Forward all messages while he was offline
+  if (user.offlineMessages.length > 0) {
+    sendOfflineMessages(user);
+  }
+
 }
 
 
