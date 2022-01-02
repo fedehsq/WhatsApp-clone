@@ -5,7 +5,8 @@ import { MessageDao } from '../dao/messageDao.js';
 export class UserDao {
 
   static async createUser(phone, username, photo) {
-    await User.create({ phone: phone, username: username , photo: photo});
+    var user = await User.create({ phone: phone, username: username , photo: photo});
+    return new OnlineUser(user.phone, user.username, user.photo, user.uid);
   }
 
   static async getAllUser() {
@@ -20,7 +21,7 @@ export class UserDao {
       var offlineMessages = await MessageDao.getAllMessages(user.uid)
       // read all registered users
       map.set(user['phone'],
-        new OnlineUser( user.phone, user.username, user.photo, user.uid, offlineMessages));
+        new OnlineUser(user.phone, user.username, user.photo, user.uid, offlineMessages));
     }
     return map
   }

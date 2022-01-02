@@ -97,7 +97,6 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                 // Converts byte message in string
                 var json = jsonDecode(snapshot.data.toString());
                 var responseOperation = json['operation'];
-                log(responseOperation.toString());
 
                 // Switch operations
                 switch (responseOperation) {
@@ -160,7 +159,6 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                   // A client comes online
                   case online:
                     var body = jsonDecode(json['body']['online']);
-                    log(body.toString());
                     // Check if it is the peer in this chat
                     if (widget.contact.phone == body['phone']) {
                       widget.contact.isOnline = true;

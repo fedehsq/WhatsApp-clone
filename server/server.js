@@ -184,14 +184,13 @@ function sendUsers(socket) {
  * @param {Map} body - Body of json containing the user phone number 
  * @param {WebSocket} socket - Socket where to send the response
  */
-function register(body, socket) {
+async function register(body, socket) {
   console.log("REGISTER");
-  // Save user to map
-  let user = new OnlineUser(body['phone'], body['username'], body['photo']);
+  // Create user and save it to database
+  let user = await UserDao.createUser(body['phone'], body['username'], body['photo']);
   // Add just registered user to map
   registeredUsers.set(body['phone'], user);
   // Save to db
-  UserDao.createUser(body['phone'], body['username'], body['photo']);
   socket.send(JSON.stringify({ 'status_code': RESULT_OK }));
   socket.close();
 }
@@ -307,7 +306,10 @@ function sendMessage(body, sessionUser) {
   let peer = registeredUsers.get(body['dest']);
   // If peer is offline, enqueue the messages
   if (!peer.isOnline) {
-    peer.offlineMessages.push(JSON.stringify(message));
+    peer.offlineMessages.push(JSON.stringify({
+      'message' : JSON.stringify(message),
+      'user' : OnlineUser.toJson(sessionUser)
+    }));
     MessageDao.createMessage(peer.uid, message.message, message.timestamp)
   } else {
     // Send message to the 2 socket of the destination (ChatTab & ChatScreen in app)

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -92,6 +93,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                 var json = jsonDecode(snapshot.data.toString());
                 var responseOperation = json['operation'];
                 var body = json['body'];
+                log(responseOperation.toString());
 
                 // Switch operations
                 switch (responseOperation) {
@@ -99,13 +101,13 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                   case message:
                     _updateContacts(body);
                     break;
-                  
+
                   /// Client(s) sends [json] message(s) while [this] was offline,
                   /// updates [contacts] pushing the last sender as head.
                   case offlineMessages:
-                    var messages = jsonDecode(json);
+                    var messages = jsonDecode(body['messages']);
                     for (var msg in messages) {
-                      _updateContacts(msg);
+                      _updateContacts(jsonDecode(msg));
                     }
                     break;
                 }
@@ -120,7 +122,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
             Contact? contact = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (BuildContext context) => const ContactsScreen()));
+                    builder: (BuildContext context) =>
+                        ContactsScreen(contacts: contacts)));
             // Replace the contact in case the chat starts from ContactsScreen
             if (contact != null) {
               contacts.remove(contact);

@@ -9,7 +9,8 @@ import '../../models/contact.dart';
 import '../../main.dart';
 
 class ContactsScreen extends StatefulWidget {
-  const ContactsScreen({Key? key}) : super(key: key);
+  final List<Contact> contacts;
+  const ContactsScreen({Key? key, required this.contacts}) : super(key: key);
 
   @override
   _ContactsScreenState createState() => _ContactsScreenState();
@@ -60,14 +61,17 @@ class _ContactsScreenState extends State<ContactsScreen> {
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
         onTap: () async {
-          // ----- Even if i wait, the build method is called -----
-          // FLUTTER IS MAGIC!
+          // Search if the chat already exists
+          int index = widget.contacts.indexOf(contact);
           // Start Chat screen
           Contact chatter = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => Chat(contact: contact, addMessage: contact.messages.isEmpty ? true : false)),
+            MaterialPageRoute(
+                builder: (context) => Chat(
+                    contact: index == -1 ? contact : widget.contacts[index],
+                    addMessage: index == -1 ? true : false)),
           );
-          Navigator.pop(context, chatter.messages.isEmpty ? null : chatter);
+          Navigator.pop(context, /*index == -1 || */chatter.messages.isEmpty ? null : chatter);
         },
         leading: CircleAvatar(
             radius: 25, backgroundImage: contact.profileImage.image),
