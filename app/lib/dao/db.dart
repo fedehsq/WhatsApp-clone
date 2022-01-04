@@ -21,24 +21,25 @@ class DatabaseHelper {
       // constructed for each platform.
       join(await getDatabasesPath(), 'database.db'),
       // When the database is first created, create a table to store dogs.
-      onCreate: (db, version) {
+      onCreate: (db, version) async {
         // Run the CREATE TABLE statement on the database.
-        return db.execute('''
+        await db.execute('''
           CREATE TABLE contacts (
-            cid ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-            phone TEXT NOT NULL,
+            phone TEXT PRIMARY KEY NOT NULL,
             username TEXT NOT NULL,
-            profileImage TEXT NOT NULL,
-            toRead INTEGER NOT NULL,
-            isOnline INTEGER NOT NULL
-          )
+            profile_image TEXT NOT NULL,
+            to_read INTEGER NOT NULL
+          )''');
+        
+        await db.execute('''
           CREATE TABLE messages (
-            mid ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            contact_phone INTEGER NOT NULL,
             text TEXT NOT NULL,
-            fromServer INTEGER NOT NULL,
-            timestamp TEXT NOT NULL
-          )
-          ''');
+            from_server INTEGER NOT NULL,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY(contact_phone) REFERENCES contacts(phone)
+          )''');
       },
       // Set the version. This executes the onCreate function and provides a
       // path to perform database upgrades and downgrades.

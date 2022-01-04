@@ -2,14 +2,17 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
+import 'package:whatsapp_clone/dao/contact_dao.dart';
+import 'package:whatsapp_clone/dao/message_dao.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/contacts/contacts_screen.dart';
 import '../chat/chat_screen.dart';
-import '../../models/contact.dart';
-import '../../models/message.dart';
+import '../../helper/Contact.dart';
+import '../../helper/Message.dart';
 import '../../main.dart';
 
 // Class reprsenting chat screen of WhatsApp.
@@ -24,25 +27,33 @@ class ChatTabScreen extends StatefulWidget {
 class _ChatTabScreenState extends State<ChatTabScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   /// Connection with WhatsApp's server.
-  final IOWebSocketChannel mainChannel = IOWebSocketChannel.connect(server);
+  final IOWebSocketChannel _channel = IOWebSocketChannel.connect(server);
 
   /// WhatsApp's registered users with a chat with this client.
-  final List<Contact> contacts = [];
+  final List<Contact> _contacts = [];
 
   /// Avoid duplicated messages after a setState(() {}) invocation.
-  String lastMessage = '';
+  String _lastMessage = '';
 
   @override
   void initState() {
+    super.initState();
     // Authentication with server, sends client phone number
-    mainChannel.sink.add(jsonEncode({
+    _channel.sink.add(jsonEncode({
       'operation': login,
       'body': {
         'phone': SharedPreferencesManager.getPhoneNumber(),
       }
     }));
-    super.initState();
+    // Managing lifecycle
     WidgetsBinding.instance!.addObserver(this);
+    // Get contacts from db after build functions ends
+    SchedulerBinding.instance!.addPostFrameCallback((_) async {
+      _contacts.addAll(await ContactDao.getContacts());
+      _contacts.sort((b, a) =>
+          a.messages.last.timestamp.compareTo(b.messages.last.timestamp));
+      setState(() {});
+    });
   }
 
   @override
@@ -50,7 +61,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
     switch (state) {
       // Send online status to the server
       case AppLifecycleState.resumed:
-        mainChannel.sink.add(jsonEncode({
+        _channel.sink.add(jsonEncode({
           'operation': online,
           'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
         }));
@@ -58,7 +69,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
 
       // Send offline status to the server (app yet opened in background)
       case AppLifecycleState.paused:
-        mainChannel.sink.add(jsonEncode({
+        _channel.sink.add(jsonEncode({
           'operation': offline,
           'body': {'phone': SharedPreferencesManager.getPhoneNumber()}
         }));
@@ -80,15 +91,20 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    return _buildChatList();
+  }
+
+  /// Builds and displays the chat list, updating it when a message is received.
+  Scaffold _buildChatList() {
     return Scaffold(
         body: StreamBuilder(
-            stream: mainChannel.stream,
+            stream: _channel.stream,
             builder: (context, snapshot) {
               // Check if server sends something, ignoring replicate messages
               // The first part of message is the operation identifier,
               // last part the body
-              if (snapshot.hasData && lastMessage != snapshot.data) {
-                lastMessage = snapshot.data.toString();
+              if (snapshot.hasData && _lastMessage != snapshot.data) {
+                _lastMessage = snapshot.data.toString();
                 // Converts byte message in string
                 var json = jsonDecode(snapshot.data.toString());
                 var responseOperation = json['operation'];
@@ -123,12 +139,14 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                 context,
                 MaterialPageRoute(
                     builder: (BuildContext context) =>
-                        ContactsScreen(contacts: contacts)));
+                        ContactsScreen(contacts: _contacts)));
             // Replace the contact in case the chat starts from ContactsScreen
             if (contact != null) {
-              contacts.remove(contact);
-              contacts.add(contact);
-              contacts.sort((b, a) => a.messages.last.timestamp
+              //ContactDao.createUser(contact);
+              //MessageDao.deleteMessages(contact.phone);
+              _contacts.remove(contact);
+              _contacts.add(contact);
+              _contacts.sort((b, a) => a.messages.last.timestamp
                   .compareTo(b.messages.last.timestamp));
               setState(() {});
             }
@@ -136,26 +154,30 @@ class _ChatTabScreenState extends State<ChatTabScreen>
         ));
   }
 
-  /// Client sends a [json] message, updates [contacts] pushing the sender as head.
+  /// Client sends a [json] message, updates [_contacts] pushing the sender as head.
   _updateContacts(dynamic json) {
     var message = jsonDecode(json['message']);
     var sender = jsonDecode(json['user']);
-    int i = contacts.indexWhere((element) => element.phone == sender['phone']);
+    int i = _contacts.indexWhere((element) => element.phone == sender['phone']);
     Contact contact =
-        (i == -1) ? Contact.fromJson(sender) : contacts.removeAt(i);
+        (i == -1) ? Contact.fromJson(sender) : _contacts.removeAt(i);
     // New message to read
     contact.toRead++;
-    contact.messages.add(Message(message['message'], fromServer: true));
-    contacts.insert(0, contact);
+    Message m = Message(message['message'], fromServer: true);
+    contact.messages.add(m);
+    _contacts.insert(0, contact);
+    // Replace if collide
+    ContactDao.createUser(contact);
+    MessageDao.createMessage(m, contactPhone: contact.phone);
   }
 
-  /// Builds and displays the [contacts] ListView.
+  /// Builds and displays the [_contacts] ListView.
   ListView _buildContactList() {
     return ListView.builder(
         padding: const EdgeInsets.only(top: 8),
-        itemCount: contacts.length,
+        itemCount: _contacts.length,
         itemBuilder: (BuildContext context, int index) {
-          return _buildContactListTile(contacts[index]);
+          return _buildContactListTile(_contacts[index]);
         });
   }
 
@@ -176,13 +198,15 @@ class _ChatTabScreenState extends State<ChatTabScreen>
         // Remove notify icon
         contact.toRead = 0;
         // Sort from last received to first received
-        contacts.sort((b, a) =>
+        _contacts.sort((b, a) =>
             a.messages.last.timestamp.compareTo(b.messages.last.timestamp));
         setState(() {});
       },
       // Contact's profile image
-      leading:
-          CircleAvatar(radius: 25, backgroundImage: contact.profileImage.image),
+      leading: CircleAvatar(
+          radius: 25,
+          backgroundImage:
+              Image.memory(base64Decode(contact.base64ProfileImage)).image),
       title: Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
         child: Row(

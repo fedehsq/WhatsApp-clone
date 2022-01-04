@@ -6,10 +6,12 @@ import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
+import 'package:whatsapp_clone/dao/contact_dao.dart';
+import 'package:whatsapp_clone/dao/message_dao.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/contacts/contacts_screen.dart';
-import '../../models/contact.dart';
-import '../../models/message.dart';
+import '../../helper/Contact.dart';
+import '../../helper/Message.dart';
 import '../../main.dart';
 
 /// Class representing the WhatsApp chat screen.
@@ -63,7 +65,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
     });
     super.initState();
   }
-  
+
   @override
   void dispose() {
     controller.dispose();
@@ -104,6 +106,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                 // Converts byte message in string
                 var json = jsonDecode(snapshot.data.toString());
                 var responseOperation = json['operation'];
+                log(responseOperation.toString());
 
                 // Switch operations
                 switch (responseOperation) {
@@ -114,8 +117,11 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                     if (message['phone'] == widget.contact.phone) {
                       if (widget.addMessage) {
                         // Case in which this client starts the chat through ContactsScreen
-                        widget.contact.messages
-                            .add(Message(message['message'], fromServer: true));
+                        Message msg =
+                            Message(message['message'], fromServer: true);
+                        widget.contact.messages.add(msg);
+                        //MessageDao.createMessage(msg,
+                        //    contactPhone: widget.contact.phone);
                       } else {
                         // Message added in ChatScreenTab
                         SchedulerBinding.instance!.addPostFrameCallback((_) {
@@ -166,8 +172,11 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                   // A client comes online
                   case online:
                     var body = jsonDecode(json['body']['online']);
+                    log(body.toString());
+                    log(widget.contact.username);
                     // Check if it is the peer in this chat
                     if (widget.contact.phone == body['phone']) {
+                      log('qua');
                       widget.contact.isOnline = true;
                     }
                     break;
@@ -220,7 +229,9 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: CircleAvatar(
-                    backgroundImage: widget.contact.profileImage.image,
+                    backgroundImage: Image.memory(
+                            base64Decode(widget.contact.base64ProfileImage))
+                        .image,
                     backgroundColor: primaryColor,
                   ),
                 ),
@@ -242,7 +253,7 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
             // Options to the right on the AppBar
             actions: [
               IconButton(
-                  onPressed: () => {},
+                  onPressed: () => {log(widget.contact.isOnline.toString())},
                   icon: const Icon(Icons.videocam_rounded)),
               IconButton(onPressed: () => {}, icon: const Icon(Icons.call)),
               IconButton(
@@ -338,8 +349,10 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                       // Save user input
                       input = messageController.text;
                       if (input.isNotEmpty) {
-                        widget.contact.messages
-                            .add(Message(input, fromServer: false));
+                        Message msg = Message(input, fromServer: false);
+                        widget.contact.messages.add(msg);
+                        MessageDao.createMessage(msg,
+                            contactPhone: widget.contact.phone);
                         messageController.text = '';
                         // Encode message as Json object
                         setState(() {
@@ -420,5 +433,4 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
               ])),
         ));
   }
-
 }

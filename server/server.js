@@ -349,9 +349,18 @@ function createChatConnection(body, socket) {
       'status_code': RESULT_OK,
       'operation': OFFLINE,
       'body': {
-        'offline': JSON.stringify({ 'phone': phone })
+        'offline': JSON.stringify({ 'phone': peer.phone })
       }
     }));
+  } else {
+    inChatUser.chatSocket.send(JSON.stringify(
+      {
+        'status_code': RESULT_OK,
+        'operation': ONLINE,
+        'body': {
+          'online': JSON.stringify({ 'phone': peer.phone })
+        }
+      }));
   }
   return inChatUser;
   /// SERVER MUST SENDS TO ALL CHAT SOCKET THE PEER STATUS, SO IN CLIENT I CAN ALWAYS REBUILD THE APPBAR WITH STAUS!

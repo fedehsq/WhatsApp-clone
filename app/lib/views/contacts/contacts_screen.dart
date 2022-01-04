@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import '../chat/chat_screen.dart';
-import '../../models/contact.dart';
+import '../../helper/Contact.dart';
 import '../../main.dart';
 
 class ContactsScreen extends StatefulWidget {
@@ -64,17 +64,20 @@ class _ContactsScreenState extends State<ContactsScreen> {
           // Search if the chat already exists
           int index = widget.contacts.indexOf(contact);
           // Start Chat screen
-          Contact chatter = await Navigator.push(
+          Contact? chatter = await Navigator.push(
             context,
             MaterialPageRoute(
                 builder: (context) => Chat(
                     contact: index == -1 ? contact : widget.contacts[index],
                     addMessage: index == -1 ? true : false)),
           );
-          Navigator.pop(context, /*index == -1 || */chatter.messages.isEmpty ? null : chatter);
+          Navigator.pop(context,
+              /*index == -1 || */ chatter!.messages.isEmpty ? null : chatter);
         },
         leading: CircleAvatar(
-            radius: 25, backgroundImage: contact.profileImage.image),
+            radius: 25,
+            backgroundImage:
+                Image.memory(base64Decode(contact.base64ProfileImage)).image),
         title: Text(
           contact.username,
           style: const TextStyle(color: textColor),
