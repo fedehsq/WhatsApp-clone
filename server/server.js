@@ -5,6 +5,7 @@ import { DatabaseManager } from './dao/db.js';
 import { OnlineUser } from './helper/user.js';
 import { Message } from './helper/message.js';
 import { MessageDao } from './dao/messageDao.js';
+import { User } from './models/user.js';
 
 /**
  * Operations provided to the clients
@@ -24,18 +25,10 @@ const SEND = 4
 // Client becomes online
 const ONLINE = 5
 // Client becomes offline
-const OFFLINE = 6
-
-/**
- * Responses key-code provided to the clients
- */ 
-
-// Another client becomes online
-// const ONLINE = 5
-// Another client becomes offline
-// const OFFLINE = 6
-
-// Server send to the just logged user all other registered users
+const OFFLINE = 6 
+// Client requests registered user
+const USER = 10
+// Client requests registered users
 const USERS = 7 
 // Client receives a message
 const MESSAGE = 8
@@ -45,6 +38,9 @@ const OFFLINE_MESSAGES = 9
 /* Response code */
 const RESULT_OK = 0
 const RESULT_KO = 1
+
+
+
 
 /**
  * Server starts
@@ -113,9 +109,91 @@ webServerSocket.on("connection", (socket) => {
       case OFFLINE:
         setOffline(body);
         break;
+
+      // Client requests the registered users
+      case USER:
+        sendUser(body, socket);
+        break;
+
+      // Client requests the registered users
+      case USERS:
+        sendUsers(socket);
+        break;
     }
   })
 })
+
+/**
+ * Send user's info to a client
+ * @param {WebSocket} socket - Socket where to send the found user
+ * @param {Map} body - Body of json containing the user phone number 
+ */
+function sendUser(body, socket) {
+  console.log('USER');
+  let user = registeredUsers.get(body['phone'])
+  socket.send(JSON.stringify(
+    {
+      'status_code' : RESULT_OK,
+      'operation' : USER,
+      'body': {
+        'user' : JSON.stringify(OnlineUser.toJson(user))
+      }
+    }
+  ));
+}
+
+/**
+ * Get all registered users and send them to the requester
+ * @param {WebSocket} socket - Socket where to send the registered users
+ */
+function sendUsers(socket) {
+  console.log('USERS');
+  let users = [];
+  for (const user of registeredUsers.values()) {
+    users.push(OnlineUser.toJson(user));
+  }
+  socket.send(JSON.stringify(
+    {
+      'status_code' : RESULT_OK,
+      'operation' : USERS,
+      'body': {
+        'users' : JSON.stringify(users)}
+    }
+  ));
+}
+
+/**
+ * Server checks if the phone number can be registered
+ * @param {Map} body - Body of json containing the user phone number 
+ * @param {WebSocket} socket - Socket where to send the response
+ */
+ function registerRequest(body, socket) {
+  console.log("REGISTER REQUEST");
+  // Check if the phone number is already registered
+  let user = registeredUsers.get(body['phone']);
+  if (user == null) {
+    socket.send(JSON.stringify({ 'status_code': RESULT_OK }));
+    socket.close();
+  } else {
+    socket.send(JSON.stringify({ 'status_code': RESULT_KO }));
+  }
+}
+
+/**
+ * Client registration
+ * @param {Map} body - Body of json containing the user phone number 
+ * @param {WebSocket} socket - Socket where to send the response
+ */
+async function register(body, socket) {
+  console.log("REGISTER");
+  // Create user and save it to database
+  let user = await UserDao.createUser(body['phone'], body['username'], body['photo']);
+  // Add just registered user to map
+  registeredUsers.set(body['phone'], user);
+  // Save to db
+  socket.send(JSON.stringify({ 'status_code': RESULT_OK }));
+  socket.close();
+}
 
 /**
  * Send to all online users the new offline status
@@ -142,12 +220,10 @@ function sendOfflineStatus(phone) {
         'offline': JSON.stringify({ 'phone': phone })
       }
     });
-  for (const u of onlineUsers) {
-    if (u.phone != phone) {
-      u.mainSocket.send(messageForPeer);
-      if (u.chatSocket != null) {
+  for (const u of onlineUsers.values()) {
+    // Send only to chat socket (ChatScreen)
+    if (u.phone != phone && u.chatSocket != null) {
         u.chatSocket.send(messageForPeer);
-      }
     }
   }
 }
@@ -165,9 +241,10 @@ function setOnline(body) {
   let user = onlineUsers.get(phone);
   user.isOnline = true;
   // Forward all messages while he was offline
-  sendOfflineMessages(user);
-  // Notify to all other online users the new user status
-  console.log(phone)
+  if (user.offlineMessages.length > 0) {
+    sendOfflineMessages(user);
+  }
+  // Notify to all other online users on the ChatScreen the new user status
   sendOnlineStatus(phone);
 }
 
@@ -186,11 +263,8 @@ function sendOnlineStatus(phone) {
     });
   // Send to all other clients that user is online
   for (const u of onlineUsers.values()) {
-    if (u.phone != phone) {
-      u.mainSocket.send(messageForPeer);
-      if (u.chatSocket != null) {
+    if (u.phone != phone && u.chatSocket != null) {
         u.chatSocket.send(messageForPeer);
-      }
     }
   }
 }
@@ -232,8 +306,11 @@ function sendMessage(body, sessionUser) {
   let peer = registeredUsers.get(body['dest']);
   // If peer is offline, enqueue the messages
   if (!peer.isOnline) {
-    peer.offlineMessages.push(JSON.stringify(message));
-    MessageDao.createMessage(peer.id, message.body, message.timestamp)
+    peer.offlineMessages.push(JSON.stringify({
+      'message' : JSON.stringify(message),
+      'user' : OnlineUser.toJson(sessionUser)
+    }));
+    MessageDao.createMessage(peer.uid, message.message, message.timestamp)
   } else {
     // Send message to the 2 socket of the destination (ChatTab & ChatScreen in app)
     let messageForPeer = JSON.stringify(
@@ -241,7 +318,8 @@ function sendMessage(body, sessionUser) {
         'status_code' : RESULT_OK,
         'operation' : MESSAGE,
         'body': {
-          'message' : JSON.stringify(message)
+          'message' : JSON.stringify(message),
+          'user' : OnlineUser.toJson(sessionUser)
         }
       })
     peer.mainSocket.send(messageForPeer);
@@ -263,16 +341,24 @@ function createChatConnection(body, socket) {
   console.log("OPEN_CHAT_SOCKET");
   let phone = body['phone'];
   let peer = onlineUsers.get(body['dest']);
-  inChatUser = onlineUsers.get(phone);
+  var inChatUser = onlineUsers.get(phone);
   inChatUser.chatSocket = socket;
   // Notify the peer status
-  if (peer == null) {    
+  if (peer == null) {   
+    inChatUser.chatSocket.send(JSON.stringify({
+      'status_code': RESULT_OK,
+      'operation': OFFLINE,
+      'body': {
+        'offline': JSON.stringify({ 'phone': peer.phone })
+      }
+    }));
+  } else {
     inChatUser.chatSocket.send(JSON.stringify(
       {
-        'status_code' : RESULT_OK,
-        'operation' : OFFLINE,
+        'status_code': RESULT_OK,
+        'operation': ONLINE,
         'body': {
-          'offline' : JSON.stringify({'phone' : registeredUsers.get(body['dest'])})
+          'online': JSON.stringify({ 'phone': peer.phone })
         }
       }));
   }
@@ -299,59 +385,17 @@ function login(body, socket) {
   let user = registeredUsers.get(body['phone']);
   user.mainSocket = socket;
   user.isOnline = true;
-
-  // Send to all OTHER clients the new connected onlineUsers, and send to new user all the others
-  let users = [];
-  for (const user of registeredUsers) {
-    users.push(OnlineUser.toJson(user));
-  }
-
-  // Sends all registered users to user 
-  user.mainSocket.send(JSON.stringify(
-    {
-      'status_code' : RESULT_OK,
-      'operation' : USERS,
-      'body': {
-        'users' : JSON.stringify(users)}
-    }
-  ));
   // Add just connected user to online users map
   onlineUsers.set(body['phone'], user);
-}
-
-/**
- * Client registration
- * @param {Map} body - Body of json containing the user phone number 
- * @param {WebSocket} socket - Socket where to send the response
- */
-function register(body, socket) {
-  console.log("REGISTER");
-  // Save user to map
-  let user = new OnlineUser(body['phone'], body['username'], body['photo']);
-  // Add just registered user to map
-  registeredUsers.set(body['phone'], user);
-  // Save to db
-  UserDao.createUser(body['phone'], body['username'], body['photo']);
-  socket.send(JSON.stringify({ 'status_code': RESULT_OK }));
-  socket.close();
-}
-
-/**
- * Server checks if the phone number can be registered
- * @param {Map} body - Body of json containing the user phone number 
- * @param {WebSocket} socket - Socket where to send the response
- */
-function registerRequest(body, socket) {
-  console.log("REQUEST");
-  // Check if the phone number is already registered
-  let user = registeredUsers.get(body['phone']);
-  if (user == null) {
-    socket.send(JSON.stringify({ 'status_code': RESULT_OK }));
-    socket.close();
-  } else {
-    socket.send(JSON.stringify({ 'status_code': RESULT_KO }));
+  // Forward all messages while he was offline
+  if (user.offlineMessages.length > 0) {
+    sendOfflineMessages(user);
   }
+
 }
+
+
+
 /*
    // CLIENT WHANTS TO ADD A CHAT TO THE SCREEN => 
     

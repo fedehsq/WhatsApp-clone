@@ -10,7 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
-import 'package:whatsapp_clone/views/home/homepage_screen.dart';
+import 'package:whatsapp_clone/views/tabs/homepage_screen.dart';
 import 'package:whatsapp_clone/main.dart';
 
 class ProfileSetup extends StatefulWidget {

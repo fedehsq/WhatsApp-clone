@@ -8,6 +8,12 @@ const sequelize = new Sequelize({
 });
 
 export const OfflineMessage = sequelize.define('OfflineMessage', {
+  id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    primaryKey: true,
+    autoIncrement: true,
+  },
   text: {
       type: DataTypes.STRING,
       allowNull: false
