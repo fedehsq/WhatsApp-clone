@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:whatsapp_clone/api.dart';
+
 import 'Message.dart';
 
 /// Class representing a registered user to WhatsApp.
@@ -18,7 +20,7 @@ class Contact {
   /// Returns a new Contact parsing parameters from [json].
   factory Contact.fromJson(Map<String, dynamic> json) {
     return Contact(json['phone'], json['username'],
-        json['photo'], json['isOnline'], []);
+        serverImagesPath + json['photo'], json['isOnline'], []);
   }
 
   /// Returns a new Contact parsing parameters from [model] and [messages].
@@ -26,7 +28,7 @@ class Contact {
     return Contact(
       model['phone'],
       model['username'],
-      model['profile_image'],
+      serverImagesPath + model['profile_image'],
       false,
       messages,
       model['to_read'],

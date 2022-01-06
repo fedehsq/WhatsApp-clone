@@ -1,23 +1,18 @@
-import { Sequelize, DataTypes } from 'sequelize';
 import WebSocket, { WebSocketServer } from 'ws';
 import { UserDao } from './dao/userDao.js';
 import { DatabaseManager } from './dao/db.js';
 import { OnlineUser } from './helper/user.js';
 import { Message } from './helper/message.js';
 import { MessageDao } from './dao/messageDao.js';
-import { User } from './models/user.js';
 import express from "express";
 import path from 'path';
-import fs from 'fs';
 import sharp from 'sharp';
 
 // Server that expose static files
-const staticServerAddress = 'http://192.168.1.10:8888'
 const __dirname = path.resolve();
 var app = express();
 app.listen(8888);
 app.use('/static/images', express.static(__dirname + '/public'));
-
 
 /**
  * Operations provided to the clients
@@ -38,8 +33,6 @@ const SEND = 4
 const ONLINE = 5
 // Client becomes offline
 const OFFLINE = 6 
-// Client requests registered user
-const USER = 10
 // Client requests registered users
 const USERS = 7 
 // Client receives a message
@@ -120,11 +113,6 @@ webServerSocket.on("connection", (socket) => {
         break;
 
       // Client requests the registered users
-      case USER:
-        sendUser(body, socket);
-        break;
-
-      // Client requests the registered users
       case USERS:
         sendUsers(socket);
         break;
@@ -139,32 +127,13 @@ webServerSocket.on("connection", (socket) => {
  */
 function resizePhotoThenSave(base64Image, title) {
   sharp(Buffer.from(base64Image, 'base64'))
-  .resize(360, 360)
-  .toFile(__dirname + '/public/' + title + '.png', function(err) {
-    console.log(err)
-  });
-  return staticServerAddress + '/static/images/' + title + '.png';
+    .resize(360, 360)
+    .toFile(__dirname + '/public/' + title + '.png', function(err) {
+      console.log(err)
+    });
+  return title + '.png';
 }
 
-
-/**
- * Send user's info to a client
- * @param {WebSocket} socket - Socket where to send the found user
- * @param {Map} body - Body of json containing the user phone number 
- */
-function sendUser(body, socket) {
-  console.log('USER');
-  let user = registeredUsers.get(body['phone'])
-  socket.send(JSON.stringify(
-    {
-      'status_code' : RESULT_OK,
-      'operation' : USER,
-      'body': {
-        'user' : JSON.stringify(OnlineUser.toJson(user))
-      }
-    }
-  ));
-}
 
 /**
  * Get all registered users and send them to the requester
@@ -378,13 +347,12 @@ function createChatConnection(body, socket) {
       }
     }));
   } else {
-    inChatUser.chatSocket.send(JSON.stringify(
-      {
-        'status_code': RESULT_OK,
-        'operation': ONLINE,
-        'body': {
-          'online': JSON.stringify({ 'phone': peer.phone })
-        }
+    inChatUser.chatSocket.send(JSON.stringify({
+      'status_code': RESULT_OK,
+      'operation': ONLINE,
+      'body': {
+        'online': JSON.stringify({ 'phone': peer.phone })
+      }
       }));
   }
   return inChatUser;
@@ -416,7 +384,8 @@ function login(body, socket) {
   if (user.offlineMessages.length > 0) {
     sendOfflineMessages(user);
   }
-
+  // Send online status to all socket
+  sendOnlineStatus(user.phone);
 }
 
 

@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
+import 'package:whatsapp_clone/dao/contact_dao.dart';
 import '../chat/chat_screen.dart';
 import '../../helper/Contact.dart';
 import '../../main.dart';
@@ -63,21 +64,29 @@ class _ContactsScreenState extends State<ContactsScreen> {
         onTap: () async {
           // Search if the chat already exists
           int index = widget.contacts.indexOf(contact);
+          // Add to contacts if it is not yet present, so the messages are managed
+          // in the homepage
+          if (index == -1) {
+            widget.contacts.add(contact);
+            ContactDao.insertContact(contact);
+          }
           // Start Chat screen
-          Contact? chatter = await Navigator.push(
-            context,
-            MaterialPageRoute(
+          await Navigator.push(
+              context,
+              MaterialPageRoute(
                 builder: (context) => Chat(
-                    contact: index == -1 ? contact : widget.contacts[index],
-                    addMessage: index == -1 ? true : false)),
-          );
-          Navigator.pop(context,
-              /*index == -1 || */ chatter!.messages.isEmpty ? null : chatter);
+                  contact: contact,
+                ),
+              ));
+          // Remove it if no messages are received/sent
+          if (contact.messages.isEmpty) {
+            widget.contacts.remove(contact);
+            ContactDao.delete(contact);
+          }
+          Navigator.pop(context, contact.messages.isEmpty ? null : contact);
         },
         leading: CircleAvatar(
-            radius: 25,
-            backgroundImage:
-                Image.network(contact.urlImage).image),
+            radius: 25, backgroundImage: Image.network(contact.urlImage).image),
         title: Text(
           contact.username,
           style: const TextStyle(color: textColor),

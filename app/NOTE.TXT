@@ -1,4 +1,1 @@
-1: inviare stato online quando eseguo login a tutte le chatsocket
-2: !!!! trovare modo efficiente per gestire foto, base64 è osceno
-3: aggiornare database quando entro/esco dalla chat per rimuovere notifiche
-4: 
+4: Delete from onlineusers in server

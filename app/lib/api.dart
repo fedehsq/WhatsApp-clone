@@ -1,5 +1,5 @@
 const server = 'ws://192.168.1.10:8080';
-const staticServer = 'http://192.168.1.10:8888/';
+const serverImagesPath = 'http://192.168.1.10:8888/static/images/';
 
 /// Operations provided to the clients
 

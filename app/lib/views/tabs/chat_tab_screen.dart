@@ -142,10 +142,8 @@ class _ChatTabScreenState extends State<ChatTabScreen>
                         ContactsScreen(contacts: _contacts)));
             // Replace the contact in case the chat starts from ContactsScreen
             if (contact != null) {
-              //ContactDao.createUser(contact);
-              //MessageDao.deleteMessages(contact.phone);
-              _contacts.remove(contact);
-              _contacts.add(contact);
+              contact.toRead = 0;
+              ContactDao.updateContact(contact);
               _contacts.sort((b, a) => a.messages.last.timestamp
                   .compareTo(b.messages.last.timestamp));
               setState(() {});
@@ -163,12 +161,13 @@ class _ChatTabScreenState extends State<ChatTabScreen>
         (i == -1) ? Contact.fromJson(sender) : _contacts.removeAt(i);
     // New message to read
     contact.toRead++;
-    Message m = Message(message['message'], fromServer: true);
-    contact.messages.add(m);
+    Message msg = Message(message['message'], fromServer: true);
+    contact.messages.add(msg);
     _contacts.insert(0, contact);
-    // Replace if collide
-    ContactDao.createUser(contact);
-    MessageDao.createMessage(m, contactPhone: contact.phone);
+    if (i == -1) {
+      ContactDao.insertContact(contact);
+    }
+    MessageDao.createMessage(msg, contactPhone: contact.phone);
   }
 
   /// Builds and displays the [_contacts] ListView.
@@ -182,7 +181,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
   }
 
   /// Build the Widget representing a [contact] with his info.
-  _buildContactListTile(Contact contact) {
+  ListTile _buildContactListTile(Contact contact) {
     return ListTile(
       onTap: () async {
         // Start Chat screen
@@ -191,12 +190,11 @@ class _ChatTabScreenState extends State<ChatTabScreen>
           MaterialPageRoute(
               builder: (context) => Chat(
                     contact: contact,
-                    // Messages are received only on this stream
-                    addMessage: false,
                   )),
         );
         // Remove notify icon
         contact.toRead = 0;
+        ContactDao.updateContact(contact);
         // Sort from last received to first received
         _contacts.sort((b, a) =>
             a.messages.last.timestamp.compareTo(b.messages.last.timestamp));
@@ -204,9 +202,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       },
       // Contact's profile image
       leading: CircleAvatar(
-          radius: 25,
-          backgroundImage:
-              Image.network(contact.urlImage).image),
+          radius: 25, backgroundImage: Image.network(contact.urlImage).image),
       title: Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
         child: Row(

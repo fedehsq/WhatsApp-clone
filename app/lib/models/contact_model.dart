@@ -4,15 +4,16 @@ import 'package:whatsapp_clone/helper/Contact.dart';
 class ContactModel {
   final String phone;
   final String username;
-  final String urlImage;
+  final String imageTitle;
   final int toRead;
 
-  ContactModel(this.phone, this.username, this.urlImage, this.toRead);
+  ContactModel(this.phone, this.username, this.imageTitle, this.toRead);
 
   /// Returns a new Contact parsing parameters from [contact].
   factory ContactModel.fromContact(Contact contact) {
-    return ContactModel(
-        contact.phone, contact.username, contact.urlImage, contact.toRead);
+    return ContactModel(contact.phone, contact.username,
+        // Remove the path beacuse it is dynamic
+        contact.urlImage.split("/").last, contact.toRead);
   }
 
 /*
@@ -29,11 +30,10 @@ class ContactModel {
 
   /// Returns a map representation of this [ContactModel].
   Map<String, Object?> toMap() {
-    
     return {
       'phone': phone,
       'username': username,
-      'profile_image': urlImage,
+      'profile_image': imageTitle,
       'to_read': toRead
     };
   }
