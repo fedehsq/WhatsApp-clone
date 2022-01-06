@@ -2,16 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/tabs/homepage_screen.dart';
 import 'package:whatsapp_clone/main.dart';
+import 'package:http/http.dart' as http;
 
 class ProfileSetup extends StatefulWidget {
   const ProfileSetup({Key? key}) : super(key: key);
@@ -131,10 +130,8 @@ class _ProfileSetupState extends State<ProfileSetup> {
                           } else {
                             // Load default pic
                             SharedPreferencesManager.putData(
-                                photo,
-                                defaultProfilePic);
+                                photo, defaultProfilePic);
                           }
-                          log('push');
                           // Send to the server
                           mainChannel.sink.add(jsonEncode({
                             'operation': registration,

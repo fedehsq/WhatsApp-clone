@@ -77,7 +77,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         leading: CircleAvatar(
             radius: 25,
             backgroundImage:
-                Image.memory(base64Decode(contact.base64ProfileImage)).image),
+                Image.network(contact.urlImage).image),
         title: Text(
           contact.username,
           style: const TextStyle(color: textColor),

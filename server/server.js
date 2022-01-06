@@ -6,6 +6,18 @@ import { OnlineUser } from './helper/user.js';
 import { Message } from './helper/message.js';
 import { MessageDao } from './dao/messageDao.js';
 import { User } from './models/user.js';
+import express from "express";
+import path from 'path';
+import fs from 'fs';
+import sharp from 'sharp';
+
+// Server that expose static files
+const staticServerAddress = 'http://192.168.1.10:8888'
+const __dirname = path.resolve();
+var app = express();
+app.listen(8888);
+app.use('/static/images', express.static(__dirname + '/public'));
+
 
 /**
  * Operations provided to the clients
@@ -38,9 +50,6 @@ const OFFLINE_MESSAGES = 9
 /* Response code */
 const RESULT_OK = 0
 const RESULT_KO = 1
-
-
-
 
 /**
  * Server starts
@@ -124,6 +133,21 @@ webServerSocket.on("connection", (socket) => {
 })
 
 /**
+ * Resize and encoded image, save it to fs and return the path of it
+ * @param {String} base64Image - Encoded image to resize and save
+ * @param {String} title - The name of the photo 
+ */
+function resizePhotoThenSave(base64Image, title) {
+  sharp(Buffer.from(base64Image, 'base64'))
+  .resize(360, 360)
+  .toFile(__dirname + '/public/' + title + '.png', function(err) {
+    console.log(err)
+  });
+  return staticServerAddress + '/static/images/' + title + '.png';
+}
+
+
+/**
  * Send user's info to a client
  * @param {WebSocket} socket - Socket where to send the found user
  * @param {Map} body - Body of json containing the user phone number 
@@ -187,7 +211,8 @@ function sendUsers(socket) {
 async function register(body, socket) {
   console.log("REGISTER");
   // Create user and save it to database
-  let user = await UserDao.createUser(body['phone'], body['username'], body['photo']);
+  let imageUrl = resizePhotoThenSave(body['photo'], body['phone'])
+  let user = await UserDao.createUser(body['phone'], body['username'], imageUrl);
   // Add just registered user to map
   registeredUsers.set(body['phone'], user);
   // Save to db

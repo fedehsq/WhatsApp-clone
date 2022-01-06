@@ -1,20 +1,17 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
-import 'package:whatsapp_clone/api.dart';
-
 import 'Message.dart';
 
 /// Class representing a registered user to WhatsApp.
 class Contact {
   final String phone;
   final String username;
-  final String base64ProfileImage;
+  final String urlImage;
   final List<Message> messages;
   int toRead;
   bool isOnline;
 
-  Contact(this.phone, this.username, this.base64ProfileImage, this.isOnline,
+  Contact(this.phone, this.username, this.urlImage, this.isOnline,
       this.messages,
       [this.toRead = 0]);
 
@@ -41,7 +38,7 @@ class Contact {
     return jsonEncode({
       'phone': phone,
       'username': username,
-      'profileImage': base64ProfileImage,
+      'profileImage': urlImage,
       'messages': messages.toString()
     });
   }

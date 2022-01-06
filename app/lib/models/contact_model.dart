@@ -4,15 +4,15 @@ import 'package:whatsapp_clone/helper/Contact.dart';
 class ContactModel {
   final String phone;
   final String username;
-  final String base64ProfileImage;
+  final String urlImage;
   final int toRead;
 
-  ContactModel(this.phone, this.username, this.base64ProfileImage, this.toRead);
+  ContactModel(this.phone, this.username, this.urlImage, this.toRead);
 
   /// Returns a new Contact parsing parameters from [contact].
   factory ContactModel.fromContact(Contact contact) {
     return ContactModel(
-        contact.phone, contact.username, contact.base64ProfileImage, contact.toRead);
+        contact.phone, contact.username, contact.urlImage, contact.toRead);
   }
 
 /*
@@ -33,7 +33,7 @@ class ContactModel {
     return {
       'phone': phone,
       'username': username,
-      'profile_image': base64ProfileImage,
+      'profile_image': urlImage,
       'to_read': toRead
     };
   }

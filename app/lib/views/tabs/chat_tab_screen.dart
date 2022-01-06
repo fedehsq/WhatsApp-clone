@@ -206,7 +206,7 @@ class _ChatTabScreenState extends State<ChatTabScreen>
       leading: CircleAvatar(
           radius: 25,
           backgroundImage:
-              Image.memory(base64Decode(contact.base64ProfileImage)).image),
+              Image.network(contact.urlImage).image),
       title: Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4.0),
         child: Row(

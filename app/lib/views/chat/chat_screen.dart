@@ -229,8 +229,8 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: CircleAvatar(
-                    backgroundImage: Image.memory(
-                            base64Decode(widget.contact.base64ProfileImage))
+                    backgroundImage: Image.network(
+                            widget.contact.urlImage)
                         .image,
                     backgroundColor: primaryColor,
                   ),
