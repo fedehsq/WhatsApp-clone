@@ -80,7 +80,7 @@ The screens with `debug` are the cloned version, the other ones are of the real 
 
 ![phone_number_clone](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/phone_number_clone.png) - ![phone_number_real](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/phone_number_real.png)
 
-![chat_list_clone](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/chat_list_clone.png).\
+![chat_list_clone](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/chat_list_clone.png)
 
 ![chat_clone_mi8](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/chat_clone_mi8.png) - ![chat_clone_iphonex](https://github.com/fedehsq/WhatsApp_clone/blob/develop/screens/chat_clone_iphonex.png)
 
