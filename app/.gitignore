@@ -3,13 +3,12 @@
 *.log
 *.pyc
 *.swp
+*.db
 .DS_Store
 .atom/
 .buildlog/
 .history
 .svn/
-server/sqlite:
-
 # IntelliJ related
 *.iml
 *.ipr
