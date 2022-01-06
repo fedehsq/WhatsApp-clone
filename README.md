@@ -1,7 +1,5 @@
 # WhatsApp_clone
 
-## Description
-
 A functional replica of the [WhatsApp](https://www.whatsapp.com/) mobile application.
 
 ## Functionalities
