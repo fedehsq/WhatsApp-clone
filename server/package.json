@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "express": "^4.17.2",
     "sequelize": "^7.0.0-alpha.2",
+    "sharp": "^0.29.3",
     "sqlite3": "^4.2.0",
     "ws": "^8.4.0"
   },

@@ -16,15 +16,10 @@ import '../../main.dart';
 
 /// Class representing the WhatsApp chat screen.
 class Chat extends StatefulWidget {
-  /// Indicates if the messages received must be added by this [Chat].
-  /// (true only if the chat starts through [ContactsScreen]).
-  final bool addMessage;
-
   /// The receiver [contact] of this [Chat].
   final Contact contact;
 
-  const Chat({Key? key, required this.contact, required this.addMessage})
-      : super(key: key);
+  const Chat({Key? key, required this.contact}) : super(key: key);
   @override
   _ChatState createState() => _ChatState();
 }
@@ -111,25 +106,19 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                 // Switch operations
                 switch (responseOperation) {
                   // Client sends a message
-                  case message:
+                  /*case message:
                     var message = jsonDecode(json['body']['message']);
                     // Check if the received message comes from this peer
+                    
                     if (message['phone'] == widget.contact.phone) {
-                      if (widget.addMessage) {
-                        // Case in which this client starts the chat through ContactsScreen
-                        Message msg =
-                            Message(message['message'], fromServer: true);
-                        widget.contact.messages.add(msg);
-                        //MessageDao.createMessage(msg,
-                        //    contactPhone: widget.contact.phone);
-                      } else {
-                        // Message added in ChatScreenTab
-                        SchedulerBinding.instance!.addPostFrameCallback((_) {
-                          setState(() {});
-                        });
-                      }
+                      // Message added in ChatScreenTab
+                      SchedulerBinding.instance!.addPostFrameCallback((_) {
+                        setState(() {});
+                      });
                     }
                     break;
+                    */
+
                   /*
                   // One or more message, while I am offline
                   case offlineMessages:
@@ -172,20 +161,18 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                   // A client comes online
                   case online:
                     var body = jsonDecode(json['body']['online']);
-                    log(body.toString());
-                    log(widget.contact.username);
                     // Check if it is the peer in this chat
                     if (widget.contact.phone == body['phone']) {
-                      log('qua');
                       widget.contact.isOnline = true;
                     }
                     break;
                 }
-                // Scroll down
-                SchedulerBinding.instance!.addPostFrameCallback((_) {
-                  controller.jumpTo(controller.position.maxScrollExtent);
-                });
               }
+              // Scroll down
+              SchedulerBinding.instance!.addPostFrameCallback((_) {
+                controller.jumpTo(controller.position.maxScrollExtent);
+                setState(() {});
+              });
               return _buildChatStack();
             }));
   }
@@ -223,15 +210,14 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                         // Remove the flag of notification from this chat
                         onPressed: () {
                           widget.contact.toRead = 0;
-                          Navigator.pop(context, widget.contact);
+                          Navigator.pop(context);
                         })),
                 // Peer's profile pic
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: CircleAvatar(
-                    backgroundImage: Image.memory(
-                            base64Decode(widget.contact.base64ProfileImage))
-                        .image,
+                    backgroundImage:
+                        Image.network(widget.contact.urlImage).image,
                     backgroundColor: primaryColor,
                   ),
                 ),
@@ -365,10 +351,11 @@ class _ChatState extends State<Chat> with WidgetsBindingObserver {
                             }
                           }));
                         });
+                        /*
                         SchedulerBinding.instance!.addPostFrameCallback((_) {
                           controller
                               .jumpTo(controller.position.maxScrollExtent);
-                        });
+                        });*/
                       }
                     },
                     icon: const Icon(Icons.send, color: Colors.white))

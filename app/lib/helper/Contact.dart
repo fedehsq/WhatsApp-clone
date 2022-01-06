@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
 import 'package:whatsapp_clone/api.dart';
 
 import 'Message.dart';
@@ -9,19 +8,19 @@ import 'Message.dart';
 class Contact {
   final String phone;
   final String username;
-  final String base64ProfileImage;
+  final String urlImage;
   final List<Message> messages;
   int toRead;
   bool isOnline;
 
-  Contact(this.phone, this.username, this.base64ProfileImage, this.isOnline,
+  Contact(this.phone, this.username, this.urlImage, this.isOnline,
       this.messages,
       [this.toRead = 0]);
 
   /// Returns a new Contact parsing parameters from [json].
   factory Contact.fromJson(Map<String, dynamic> json) {
     return Contact(json['phone'], json['username'],
-        json['photo'], json['isOnline'], []);
+        serverImagesPath + json['photo'], json['isOnline'], []);
   }
 
   /// Returns a new Contact parsing parameters from [model] and [messages].
@@ -29,7 +28,7 @@ class Contact {
     return Contact(
       model['phone'],
       model['username'],
-      model['profile_image'],
+      serverImagesPath + model['profile_image'],
       false,
       messages,
       model['to_read'],
@@ -41,7 +40,7 @@ class Contact {
     return jsonEncode({
       'phone': phone,
       'username': username,
-      'profileImage': base64ProfileImage,
+      'profileImage': urlImage,
       'messages': messages.toString()
     });
   }
