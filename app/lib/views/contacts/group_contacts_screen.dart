@@ -37,7 +37,7 @@ class _GroupContactsScreenState extends State<GroupContactsScreen> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Nuovo gruppo'),
+              const Text('Nuovo gruppo'), 
               group.isEmpty
                   ? const Text('Aggiungi partecipanti', style: TextStyle(fontSize: 13),)
                   : Text(
