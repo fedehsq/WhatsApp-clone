@@ -55,7 +55,7 @@ await DatabaseManager.initialize()
 var registeredUsers = await UserDao.getMapAllUser()
 
 // Keeping online users
-var onlineUsers = new Map(); 
+// var onlineUsers = new Map(); 
 
 // Starts the server and specify the port number
 const webServerSocket = new WebSocketServer({ port: 8080 });
@@ -196,7 +196,7 @@ async function register(body, socket) {
 function setOffline(body) {
   console.log("OFFLINE");
   let phone = body['phone'];
-  onlineUsers.get(phone).isOnline = false;
+  registeredUsers.get(phone).isOnline = false;
   // Send to all socket that user is nomore online
   sendOfflineStatus(phone);
 }
@@ -214,9 +214,9 @@ function sendOfflineStatus(phone) {
         'offline': JSON.stringify({ 'phone': phone })
       }
     });
-  for (const u of onlineUsers.values()) {
+  for (const u of registeredUsers.values()) {
     // Send only to chat socket (ChatScreen)
-    if (u.phone != phone && u.chatSocket != null) {
+    if (u.isOnline && u.phone != phone && u.chatSocket != null) {
         u.chatSocket.send(messageForPeer);
     }
   }
@@ -232,7 +232,7 @@ function setOnline(body) {
   console.log("ONLINE");
   // Get the online user
   let phone = body['phone'];
-  let user = onlineUsers.get(phone);
+  let user = registeredUsers.get(phone);
   user.isOnline = true;
   // Forward all messages while he was offline
   if (user.offlineMessages.length > 0) {
@@ -256,8 +256,8 @@ function sendOnlineStatus(phone) {
       }
     });
   // Send to all other clients that user is online
-  for (const u of onlineUsers.values()) {
-    if (u.phone != phone && u.chatSocket != null) {
+  for (const u of registeredUsers.values()) {
+    if (u.isOnline && u.phone != phone && u.chatSocket != null) {
         u.chatSocket.send(messageForPeer);
     }
   }
@@ -334,11 +334,11 @@ function sendMessage(body, sessionUser) {
 function createChatConnection(body, socket) {
   console.log("OPEN_CHAT_SOCKET");
   let phone = body['phone'];
-  let peer = onlineUsers.get(body['dest']);
-  var inChatUser = onlineUsers.get(phone);
+  let peer = registeredUsers.get(body['dest']);
+  var inChatUser = registeredUsers.get(phone);
   inChatUser.chatSocket = socket;
   // Notify the peer status
-  if (peer == null) {   
+  if (!peer.isOnline) {   
     inChatUser.chatSocket.send(JSON.stringify({
       'status_code': RESULT_OK,
       'operation': OFFLINE,
@@ -356,15 +356,6 @@ function createChatConnection(body, socket) {
       }));
   }
   return inChatUser;
-  /// SERVER MUST SENDS TO ALL CHAT SOCKET THE PEER STATUS, SO IN CLIENT I CAN ALWAYS REBUILD THE APPBAR WITH STAUS!
-  //-------------- WHEN HE SENDS ONLINE CONTACT DI LA SETTO LA VARIABILE ONLINE A TRUE, QUANDO ESCONO DALL APP, IL SERVER RIMANDA A TUTTI I CONNESSI IL NUOVO STATO=> ALLE CHAT SOCKET! PERCHE MI INTERESSA LI, QUINDI IL VALORE DA ONLINE A OFFLINE LO CAMBIO NELLA CHAT SOCKET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! MA NON è VERO! ANCHE NELLE MAIN SOCKET! I.E NON SONO SULLA CHAT , UN UTENTE SI DISCONNETTE, AGGIORNO IL SUO VALORE NELLA MAIN SOCKET COSI QUANDO ENTRO IN CHAT HO IL VALORE AFFIORNto! QUINDI LO MANDO AD ENTRAMBE!
-  // LOGOUT USERNAME => E NELL'APP PARSO ANCHE QUESTO CASE COME MESSAGGIO RICEVUTO, E AGGIORNO STATUS!
-  // SERVER INVIA STATUS 'OFFLINE' E IL NOME DELL USCENTE! NELL APP CONTROLLO CHE COTACT.PHONE == USCENTE PER NASCONDERE LO STATUS ONLINE
-  /*
-  let peer = onlineUsers.get(json['dest']);
-  let status = peer == undefined ? 'OFFLINE' : 'ONLINE';
-  sessionUser.send("STATUS: " + JSON.stringify(status));
-  */
 }
 
 /**
@@ -379,7 +370,7 @@ function login(body, socket) {
   user.mainSocket = socket;
   user.isOnline = true;
   // Add just connected user to online users map
-  onlineUsers.set(body['phone'], user);
+  registeredUsers.set(body['phone'], user);
   // Forward all messages while he was offline
   if (user.offlineMessages.length > 0) {
     sendOfflineMessages(user);

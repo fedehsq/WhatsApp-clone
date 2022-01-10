@@ -1,4 +1,4 @@
-import 'package:whatsapp_clone/helper/Contact.dart';
+import 'package:whatsapp_clone/helper/contact.dart';
 
 /// Class representing the db model of a registered user to WhatsApp.
 class ContactModel {

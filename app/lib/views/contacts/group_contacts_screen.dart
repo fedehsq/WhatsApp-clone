@@ -5,20 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:whatsapp_clone/api.dart';
 import 'package:whatsapp_clone/dao/contact_dao.dart';
+import 'package:whatsapp_clone/helper/group.dart';
 import '../chat/chat_screen.dart';
 import '../../helper/contact.dart';
 import '../../main.dart';
 
-class ContactsScreen extends StatefulWidget {
-  final List<Contact> contacts;
-  const ContactsScreen({Key? key, required this.contacts}) : super(key: key);
+class GroupContactsScreen extends StatefulWidget {
+  const GroupContactsScreen({Key? key})
+      : super(key: key);
 
   @override
-  _ContactsScreenState createState() => _ContactsScreenState();
+  _GroupContactsScreenState createState() => _GroupContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> {
+class _GroupContactsScreenState extends State<GroupContactsScreen> {
   final IOWebSocketChannel mainChannel = IOWebSocketChannel.connect(server);
+  final Group group = Group();
 
   @override
   void initState() {
@@ -30,10 +32,21 @@ class _ContactsScreenState extends State<ContactsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+          centerTitle: false,
           backgroundColor: primaryColor,
-          title: const Text('Seleziona'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Nuovo gruppo'),
+              group.isEmpty
+                  ? const Text('Aggiungi partecipanti', style: TextStyle(fontSize: 13),)
+                  : Text(
+                      '${group.length} di 256 selezionati',
+                      style: const TextStyle(fontSize: fontSize),
+                    ),
+            ],
+          ),
           actions: [
-            IconButton(icon: const Icon(Icons.more_vert), onPressed: () => {}),
             IconButton(icon: const Icon(Icons.search), onPressed: () => {}),
           ],
         ),
@@ -61,29 +74,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
-        onTap: () async {
-          // Search if the chat already exists
-          int index = widget.contacts.indexOf(contact);
-          // Add to contacts if it is not yet present, so the messages are managed
-          // in the homepage
+        onTap: () {
+          int index = group.indexOf(contact);
           if (index == -1) {
-            widget.contacts.add(contact);
-            ContactDao.insertContact(contact);
+            group.add(contact);
+          } else {
+            group.removeAt(index);
           }
-          // Start Chat screen
-          await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => Chat(
-                  contact: contact,
-                ),
-              ));
-          // Remove it if no messages are received/sent
-          if (contact.messages.isEmpty) {
-            widget.contacts.remove(contact);
-            ContactDao.delete(contact);
-          }
-          Navigator.pop(context, contact.messages.isEmpty ? null : contact);
+          setState(() {});
         },
         leading: CircleAvatar(
             radius: 25, backgroundImage: Image.network(contact.urlImage).image),

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:whatsapp_clone/helper/Message.dart';
+import 'package:whatsapp_clone/helper/message.dart';
 
 import 'contact_model.dart';
 

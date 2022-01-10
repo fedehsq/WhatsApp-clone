@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whatsapp_clone/views/contacts/group_contacts_screen.dart';
 import '../../main.dart';
 import 'chat_tab_screen.dart';
 
@@ -35,8 +36,7 @@ class _HomepageScreenState extends State<HomepageScreen>
                     style: TextStyle(color: textColor),
                   ),
                   actions: [
-                    IconButton(
-                        icon: const Icon(Icons.search), onPressed: () => {})
+                     _buildPopUpMenu()
                   ],
                   backgroundColor: primaryColor,
                   floating: true,
@@ -84,6 +84,44 @@ class _HomepageScreenState extends State<HomepageScreen>
               ],
             )),
       ),
+    );
+  }
+
+// This menu button widget updates a _selection field (of type WhyFarther,
+// not shown here).
+  PopupMenuButton<String> _buildPopUpMenu() {
+    return PopupMenuButton(
+      icon: Icon(Icons.more_vert),
+      onSelected: (String result) async {
+        switch (result) {
+          case 'Nuovo gruppo':
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (BuildContext context) =>
+                        const GroupContactsScreen()));
+            break;
+          default:
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem(
+          value: 'Nuovo gruppo',
+          child: Text('Nuovo gruppo'),
+        ),
+        const PopupMenuItem(
+          value: 'Nuovo broadcast',
+          child: Text('Nuovo broadcast'),
+        ),
+        const PopupMenuItem(
+          value: 'Messaggi importanti',
+          child: Text('Messaggi importanti'),
+        ),
+        const PopupMenuItem(
+          value: 'Impostazioni',
+          child: Text('Impostazioni'),
+        ),
+      ],
     );
   }
 }

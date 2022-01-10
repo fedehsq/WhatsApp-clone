@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'package:sqflite/sqflite.dart';
 
 import 'package:whatsapp_clone/models/message_model.dart';
-import 'package:whatsapp_clone/helper/Message.dart';
+import 'package:whatsapp_clone/helper/message.dart';
 
 import 'db.dart';
 

@@ -3,8 +3,8 @@ import 'dart:developer';
 import 'package:sqflite/sqflite.dart';
 import 'package:whatsapp_clone/dao/message_dao.dart';
 
-import 'package:whatsapp_clone/helper/Contact.dart';
-import 'package:whatsapp_clone/helper/Message.dart';
+import 'package:whatsapp_clone/helper/contact.dart';
+import 'package:whatsapp_clone/helper/message.dart';
 import 'package:whatsapp_clone/models/contact_model.dart';
 
 import 'db.dart';

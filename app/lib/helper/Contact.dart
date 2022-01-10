@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:whatsapp_clone/api.dart';
 
-import 'Message.dart';
+import 'message.dart';
 
 /// Class representing a registered user to WhatsApp.
 class Contact {

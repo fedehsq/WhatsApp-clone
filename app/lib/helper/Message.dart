@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'Contact.dart';
+import 'contact.dart';
 
 /// Class representing text message, it contains message and timestamp.
 /// This is a field of [Contact] class.
@@ -17,6 +17,7 @@ class Message {
         timestamp: DateTime.parse(model['timestamp']),
         fromServer: model['from_server'] == 1 ? true : false);
   }
+
   /// Returns a new [Message] parsing parameters from [json].
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(json['text'],
@@ -26,11 +27,7 @@ class Message {
 
   /// Returns a map representation of this [Message].
   Map<String, Object?> toMap() {
-    return {
-      'text': text,
-      'fromServer': fromServer,
-      'timestamp': timestamp
-    };
+    return {'text': text, 'fromServer': fromServer, 'timestamp': timestamp};
   }
 
   @override

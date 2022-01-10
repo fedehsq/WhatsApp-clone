@@ -11,9 +11,12 @@ import 'package:whatsapp_clone/dao/message_dao.dart';
 import 'package:whatsapp_clone/managers/preference_manager.dart';
 import 'package:whatsapp_clone/views/contacts/contacts_screen.dart';
 import '../chat/chat_screen.dart';
-import '../../helper/Contact.dart';
-import '../../helper/Message.dart';
+import '../../helper/contact.dart';
+import '../../helper/message.dart';
 import '../../main.dart';
+
+// This is the type used by the popup menu below.
+enum WhyFarther { harder, smarter, selfStarter, tradingCharter }
 
 // Class reprsenting chat screen of WhatsApp.
 class ChatTabScreen extends StatefulWidget {
